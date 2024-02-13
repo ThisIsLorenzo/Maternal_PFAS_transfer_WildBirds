@@ -31,21 +31,13 @@ rm(list = ls()) #Effectively clears the environment of any data, functions, or v
 # using the pacman package to load multiple packages at once
 pacman::p_load(tidyverse, #a collection of packages for data manipulation, visualization, and modeling, including packages like dplyr, ggplot2, and tidyr
                readr, #a package for reading and writing tabular data, such as CSV files
-               ape, #a package for analyzing phylogenetics and evolutionary data
-               curl, #a package for transferring data over the internet using various protocols, such as HTTP and FTP
-               rotl, #a package for working with phylogenetic trees, including functions for manipulating and visualizing trees
-               RColorBrewer, #a package for generating color palettes for plotting
                here, #a package for working with file paths, particularly when working with project-based workflows
-               dm, #a package for working with distance matrices
                dplyr, #a package for data manipulation, which is already included in the tidyverse package
                metafor, #a package for conducting meta-analyses
                meta, #a package for conducting meta-analyses
-               forestplot, #a package for creating forest plots, which are commonly used to display the results of meta-analyses
                orchaRd, #a package for working with ordination data
                kableExtra, #a package for creating tables and formatting them in R Markdown documents
-               phytools, #a package for phylogenetic comparative biology
                patchwork, #a package for combining multiple plots into a single figure
-               clubSandwich, #a package for variance estimation and hypothesis testing in clustered data
                MuMIn #a package for model selection and multimodel inference
                )
 dat <- read_csv(here("RData", "dat.csv"))
@@ -65,10 +57,43 @@ ma_model_rob <- robust(ma_model, dat$measurement_ID_P)
 ```
 
 ```{r}
-load(here("RData", "ma_model_rob.RData"))
-summary(ma_model_rob)
-i2_ml(ma_model_rob)
+load(here("RData", "ma_model.RData"))
+summary(ma_model)
+i2_ml(ma_model)
 ```
+```{r}
+I2 <- orchaRd::i2_ml(ma_model)
+orchaRd::orchard_plot(ma_model,
+             mod = "1",
+             group = "study_ID", 
+             xlab = "lnRR",
+             alpha = 0.6,
+             trunk.size = 3,
+             branch.size = 1.5,
+             twig.size = 1,
+             k.pos = "right",
+             colour = TRUE,
+             fill = FALSE) +  
+  annotate(geom = "text",
+           x = 1.2,
+           y = 6.2, 
+           label = paste0("italic(I)^{2} == ", round(I2[1],4)),
+           color ="black",
+           parse = TRUE, 
+           size = 3.5) +
+           #scale_colour_manual(values = "darkorange")+ # change colours
+           #scale_fill_manual(values="darkorange")+ 
+           scale_size_continuous(range = c(1, 7)) + # change point scaling
+  ggtitle("") +
+  theme(panel.border = element_rect(colour = "black", 
+                                             fill=NA,
+                                             size=1.3), # border around the plot
+                 text = element_text(size = 15), # change font sizes
+                 legend.title = element_text(size = 12),
+                 legend.text = element_text(size = 10)) +
+  xlab("Intercept")
+```
+
 ## Model 2: Meta-analytic model with all random effects
 ```{r}
 load(here("RData", "ma_all_random_effects.RData"))
@@ -79,10 +104,43 @@ i2_ml(ma_all_random_effects)
 ## Model 3: Meta-analytic model without albumen data
 
 ```{r}
-load(here("RData", "ma_model_no_albumen_rob.RData"))
-summary(ma_model_no_albumen_rob)
-i2_ml(ma_model_no_albumen_rob)
+load(here("RData", "ma_model_no_albumen.RData"))
+summary(ma_model_no_albumen)
+i2_ml(ma_model_no_albumen)
 ```
+```{r}
+I2_no_albumen <- orchaRd::i2_ml(ma_model_no_albumen)
+orchaRd::orchard_plot(ma_model_no_albumen,
+             mod = "1",
+             group = "study_ID", 
+             xlab = "lnRR",
+             alpha = 0.6,
+             trunk.size = 3,
+             branch.size = 1.5,
+             twig.size = 1,
+             k.pos = "right",
+             colour = TRUE,
+             fill = FALSE) +  
+  annotate(geom = "text",
+           x = 1.2,
+           y = 6.2, 
+           label = paste0("italic(I)^{2} == ", round(I2_no_albumen[1],4)),
+           color ="black",
+           parse = TRUE, 
+           size = 3.5) +
+           #scale_colour_manual(values = "darkorange")+ # change colours
+           #scale_fill_manual(values="darkorange")+ 
+           scale_size_continuous(range = c(1, 7)) + # change point scaling
+           theme(panel.border = element_rect(colour = "black", 
+                                             fill=NA,
+                                             size=1.3), # border around the plot
+                 text = element_text(size = 18), # change font sizes
+                 legend.title = element_text(size = 15),
+                 legend.text = element_text(size = 13)) +
+  xlab("Intercept")
+
+```
+
 # Single-moderator metaregression models
 ## Model 4: Carbon chain length
 
@@ -95,6 +153,42 @@ load(here("RData", "ccl_model.RData"))
 summary(ccl_model)
 r2_ml(ccl_model, dat_ccl)
 ```
+```{r}
+r2_ccl <- r2_ml(ccl_model, dat_ccl)
+ccl_bubble <- orchaRd::mod_results(ccl_model, 
+                                   mod = "carbon_chain_length", 
+                                   group = "study_ID")
+                                   
+  
+bubble_plot(ccl_bubble,
+            mod = "carbon_chain_length",
+            group = "study_ID",
+            x = "carbon_chain_length",
+            y = "lnRR",
+            est.lwd = 1,
+            legend.pos = "bottom.right",
+            k.pos = "bottom.left",
+            ci.col = "red",
+            pi.col = "black",
+            est.col = "black",
+            g = TRUE) +
+  annotate(geom ="text",
+           x = 7,
+           y = 6.2,
+           label = paste0("italic(R)^{2} == ", round(r2_ccl[1],4)),
+           color = "black",
+           parse = TRUE,
+           size = 4) +
+  ggtitle("") +
+  theme(plot.title = element_text(size = 18),
+        legend.position = "none",
+        axis.title.x = element_text(size = 16),
+        axis.title.y = element_text(size = 16),
+        axis.text.y = element_text(size = 14),
+        axis.text.x = element_text(size = 14)) +
+  xlab("Carbon chain length")
+```
+
 
 ## Model 5: Molecular weight
 
@@ -103,6 +197,40 @@ load(here("RData", "mw_model.RData"))
 summary(mw_model)
 r2_ml(mw_model, dat)
 ```
+```{r}
+r2_mw <- r2_ml(mw_model, dat)
+
+mw_bubble <- orchaRd::mod_results(mw_model,
+                          mod = "molecular_weight",
+                          group = "study_ID")
+
+orchaRd::bubble_plot(mw_bubble, 
+            mod = "molecular_weight", 
+            group = "study_ID",
+            xlab = "molecular_weight",
+            ylab = "lnRR",
+            legend.pos = "bottom.right",
+            k.pos = "bottom.left",
+            ci.col = "red",
+            pi.col = "black",
+            g = TRUE) +
+  annotate(geom ="text",
+           x= 350,
+           y= 6, 
+           label= paste0("italic(R)^{2} == ", round(r2_mw[1],4)),
+           color="black",
+           parse = TRUE, 
+           size = 4) +
+  ggtitle("") +
+  theme(plot.title = element_text(size = 18),
+        legend.position = "none",
+        axis.title.x = element_text(size = 16),
+        axis.title.y = element_text(size = 16),
+        axis.text.y = element_text(size = 14),
+        axis.text.x = element_text(size = 14)) +
+  xlab("Molecular weight")
+```
+
 
 ## Model 6: Functional group
 
@@ -110,6 +238,36 @@ r2_ml(mw_model, dat)
 load(here("RData", "fun_gro_model.RData"))
 summary(fun_gro_model)
 r2_ml(fun_gro_model, dat_fg)
+```
+```{r}
+r2_fun_gro <- r2_ml(fun_gro_model, dat_fg)
+
+orchard_plot(fun_gro_model,
+             mod = "functional_group",
+             group = "study_ID",
+             xlab = "lnRR",
+             legend.pos = "bottom.right",
+             k.pos = "right",
+             angle = 90,
+             colour = "black",
+             fill = FALSE,
+             trunk.size = 5,
+             branch.size = 1.1,
+             twig.size = 0.5) +
+  annotate(geom = "text",
+           x = 4.4,
+           y = -6, 
+           label = paste0("italic(R)^{2} == ", round(r2_fun_gro[1],4)),
+           color ="black",
+           parse = TRUE, 
+           size = 4) +
+  ggtitle("")+
+  theme(plot.title = element_text(size = 18),
+        legend.position = "none",
+        axis.title.x = element_text(size = 16),
+        axis.title.y = element_text(size = 16),
+        axis.text.y = element_text(size = 14),
+       axis.text.x = element_text(size = 14))
 ```
 
 ## Model 7: Clutch size
@@ -119,6 +277,35 @@ load(here("RData", "clutch_size_model.RData"))
 summary(clutch_size_model)
 r2_ml(clutch_size_model, dat)
 ```
+```{r}
+r2_clutch <- r2_ml(clutch_size_model, dat)
+
+bubble_plot(clutch_size_model,
+             mod = "clutch_size",
+             group = "study_ID", 
+             xlab = "clutch_size",
+             ylab = "lnRR",
+             legend.pos = "bottom.right",
+             k.pos = "top.right",
+             ci.col = "red",
+             pi.col = "black",
+             g = TRUE) +
+  annotate(geom = "text",
+           x = 1.5,
+           y = -7, 
+           label = paste0("italic(R)^{2} == ", round(r2_clutch[1],4)),
+           color = "black",
+           parse = TRUE, 
+           size = 4) +
+  ggtitle("") +
+  theme(plot.title = element_text(size = 19),
+        legend.position = "none",
+        axis.title.x = element_text(size = 17),
+        axis.title.y = element_text(size = 17),
+        axis.text = element_text(size = 15)) +
+  xlab("Clutch size")
+```
+
 
 ## Model 8: Egg weight
 ```{r, echo=FALSE}
@@ -133,12 +320,68 @@ load(here("RData", "egg_weight_model.RData"))
 summary(egg_weight_model)
 r2_ml(egg_weight_model, dat_egg_weight)
 ```
+```{r}
+r2_egg_weight <- r2_ml(egg_weight_model, dat_egg_weight)
+
+bubble_plot(egg_weight_model,
+             mod = "egg_weight_mean",
+             group = "study_ID",
+             xlab = "egg_weight_mean",
+             ylab = "lnRR",
+             legend.pos = "bottom.right",
+             k.pos = "top.right",
+             ci.col = "red",
+             pi.col = "black",
+             g = TRUE) +
+  annotate(geom = "text",
+           x = 20,
+           y = -6.7, 
+           label = paste0("italic(R)^{2} == ", round(r2_egg_weight[1],4)),
+           color = "black",
+           parse = TRUE, 
+           size = 4) +
+  ggtitle("") +
+  theme(plot.title = element_text(size = 19),
+        legend.position = "none",
+        axis.title.x = element_text(size = 17),
+        axis.title.y = element_text(size = 17),
+        axis.text = element_text(size = 15)) +
+  xlab("Egg weight")
+```
 
 ## Model 9: Body weight
 ```{r}
 load(here("RData", "body_weight_model.RData"))
 summary(body_weight_model)
 r2_ml(body_weight_model, dat)
+```
+```{r}
+r2_body_weight <- r2_ml(body_weight_model, dat)
+
+bubble_plot(body_weight_model,
+             mod = "body_weight_mean",
+             group = "study_ID",
+             xlab = "body_weight_mean",
+             ylab = "lnRR",
+             legend.pos = "bottom.right",
+             k.pos = "top.right",
+             ci.col = "red",
+             pi.col = "black",
+             g = TRUE) +
+  annotate(geom = "text",
+           x = 400,
+           y = -7, 
+           label= paste0("italic(R)^{2} == ", round(r2_body_weight[1],4)),
+           color="black",
+           parse = TRUE, 
+           size = 4) +
+  ggtitle("") +
+  theme(plot.title = element_text(size = 19),
+        legend.position = "none",
+        axis.title.x = element_text(size = 17),
+        axis.title.y = element_text(size = 17),
+        axis.text = element_text(size = 15)) +
+  xlab("Body weight")
 ```
 
 ## Model 10: Laying order
@@ -147,6 +390,34 @@ load(here("RData", "laying_order_model.RData"))
 summary(laying_order_model)
 r2_ml(laying_order_model, dat)
 ```
+```{r}
+r2_laying_order <- r2_ml(laying_order_model, dat)
+bubble_plot(laying_order_model,
+             mod = "laying_order",
+             group = "study_ID",
+             xlab = "laying_order",
+             ylab = "lnRR",
+             legend.pos = "bottom.right",
+             k.pos = "top.right",
+             ci.col = "red",
+             pi.col = "black",
+             g = TRUE) +
+  annotate(geom = "text",
+           x = 1.15,
+           y = -3, 
+           label= paste0("italic(R)^{2} == ", round(r2_laying_order[1],4)),
+           color="black",
+           parse = TRUE, 
+           size = 4) +
+  ggtitle("") +
+  theme(plot.title = element_text(size = 19),
+        legend.position = "none",
+        axis.title.x = element_text(size = 17),
+        axis.title.y = element_text(size = 17),
+        axis.text = element_text(size = 15)) +
+  xlab("Laying order")
+```
+
 ## Model 11: Adult type of tissue
 ```{r}
 load(here("RData", "sample_type_a_model.RData"))
@@ -154,6 +425,37 @@ sample_type_a_model_rob <- robust(sample_type_a_model, dat$measurement_ID_P)
 summary(sample_type_a_model_rob)
 r2_ml(sample_type_a_model_rob, dat)
 ```
+```{r}
+r2_sample_type_a <-  r2_ml(sample_type_a_model_rob, dat)
+
+orchard_plot(sample_type_a_model_rob,
+             mod = "sample_type_A",
+             group = "study_ID", 
+             xlab = "lnRR",
+             k.pos = "left",
+             angle = 45,
+             colour = FALSE,
+             fill = FALSE,
+             trunk.size = 4,
+             branch.size = 1,
+             twig.size = 0.5
+             ) +
+  annotate(geom="text",
+           x= 9.4,
+           y= 5, 
+           label= paste0("italic(R)^{2} == ", round(r2_sample_type_a[1],4)),
+           color="black",
+           parse = TRUE, 
+           size = 3) +
+  ggtitle("") +
+  theme(plot.title = element_text(size = 16),
+        legend.position = "none",
+        axis.title.x = element_text(size = 14),
+        axis.title.y = element_text(size = 14),
+        axis.text.y = element_text(size = 12),
+       axis.text.x = element_text(size = 12))
+```
+
 ## Model 12: Progeny type of tissue (or egg part)
 ```{r}
 load(here("RData", "sample_type_p_model.RData"))
@@ -161,6 +463,37 @@ sample_type_p_model_rob <- robust(sample_type_p_model, dat$measurement_ID_P)
 summary(sample_type_p_model_rob)
 r2_ml(sample_type_p_model_rob, dat)
 ```
+```{r}
+r2_sample_type_p <-  r2_ml(sample_type_p_model_rob, dat)
+
+orchard_plot(sample_type_p_model_rob,
+             mod = "sample_type_P",
+             group = "study_ID", 
+             xlab = "lnRR",
+             k.pos = "left",
+             angle = 45,
+             colour = FALSE,
+             fill = FALSE,
+             trunk.size = 4,
+             branch.size = 1,
+             twig.size = 0.5
+             ) +
+  annotate(geom="text",
+           x= 5.4,
+           y= 5, 
+           label= paste0("italic(R)^{2} == ", round(r2_sample_type_p[1],4)),
+           color="black",
+           parse = TRUE, 
+           size = 3) +
+  ggtitle("b)") +
+  theme(plot.title = element_text(size = 16),
+        legend.position = "none",
+        axis.title.x = element_text(size = 14),
+        axis.title.y = element_text(size = 14),
+        axis.text.y = element_text(size = 12),
+       axis.text.x = element_text(size = 12))
+```
+
 ## Model 13: Bird's diet
 ```{r, echo=FALSE}
 sum(is.na(dat$diet))
@@ -181,6 +514,36 @@ load(here("RData", "diet_model.RData"))
 diet_model_rob <- robust(diet_model, dat_diet$measurement_ID_P)
 summary(diet_model_rob)
 r2_ml(diet_model_rob, dat_diet)
+```
+```{r}
+r2_diet <- r2_ml(diet_model_rob, dat_diet)
+
+fig_diet <- orchard_plot(diet_model_rob,
+             mod = "diet",
+             group = "study_ID",
+             xlab = "lnRR",
+             k.pos = "left",
+             angle = 45,
+             colour = FALSE,
+             fill = FALSE,
+             trunk.size = 4,
+             branch.size = 1,
+             twig.size = 0.5
+             ) +
+  annotate(geom="text",
+           x = 5.4,
+           y = 5, 
+           label= paste0("italic(R)^{2} == ", round(r2_diet[1],4)),
+           color="black",
+           parse = TRUE, 
+           size = 3) +
+  ggtitle("c)") +
+  theme(plot.title = element_text(size = 16),
+        legend.position = "none",
+        axis.title.x = element_text(size = 14),
+        axis.title.y = element_text(size = 14),
+        axis.text.y = element_text(size = 12),
+       axis.text.x = element_text(size = 12))
 ```
 
 # Multi-moderator Model
@@ -236,6 +599,32 @@ summary(MLMR_mod_ess.se)
 load(here("RData", "MLMR_mod_year.c.RData"))
 summary(MLMR_mod_year.c)
 ```
+```{r}
+pb_bubble <- orchaRd::mod_results(MLMR_mod_year.c,
+                                  mod = "year_publication",
+                                  group = "study_ID",
+                                  data = dat)
+
+bias2 <- orchaRd::bubble_plot(pb_bubble,
+                     group = "study_ID",
+                     mod = "year_publication",
+                     xlab = "Publication year", 
+                     ylab = "Mean ratio (lnRR)",
+            legend.pos = "bottom.right",
+            k.pos = "top.right",
+            ci.col = "red",
+            pi.col = "black",
+            est.col = "black") +
+  ggtitle("c)") +
+  theme(plot.title = element_text(size = 18),
+        axis.title.x = element_text(size = 16),
+        axis.title.y = element_text(size = 16),
+        axis.text.y = element_text(size = 14),
+        axis.text.x = element_text(size = 14)) +
+  xlab("Year") +
+  ylab("lnRR")
+```
+
 # Sensitivity analyses
 ## Model 17: Leave-one-out-analyses
 ```{r}
@@ -244,9 +633,9 @@ MA_oneout <- readRDS(here("Rdata", "MA_oneout.RDS"))
 # plotting
 leaveoneout <- ggplot(MA_oneout) + geom_hline(yintercept = 0, lty = 2, lwd = 1) +
 
-  geom_hline(yintercept = ma_model_rob$ci.lb, lty = 3, lwd = 0.75, colour = "black") +
-  geom_hline(yintercept = ma_model_rob$b, lty = 1, lwd = 0.75, colour = "black") + 
-  geom_hline(yintercept = ma_model_rob$ci.ub,
+  geom_hline(yintercept = ma_model$ci.lb, lty = 3, lwd = 0.75, colour = "black") +
+  geom_hline(yintercept = ma_model$b, lty = 1, lwd = 0.75, colour = "black") + 
+  geom_hline(yintercept = ma_model$ci.ub,
              lty = 3, lwd = 0.75, colour = "black") + 
   geom_pointrange(aes(x = left_out, y = est,
                       ymin = lower, ymax = upper)) + 
@@ -260,15 +649,80 @@ leaveoneout
 ```
 ## Model 18: Adult female concentrations and same nest data only
 ```{r}
-load(here("RData", "dat2_sa_model_rob.RData"))
-summary(dat2_sa_model_rob)
+load(here("RData", "dat2_sa_model.RData"))
+summary(dat2_sa_model)
 ```
+```{r}
+I2 <- orchaRd::i2_ml(dat2_sa_model)
+orchaRd::orchard_plot(dat2_sa_model,
+             mod = "1",
+             group = "study_ID", 
+             xlab = "lnRR",
+             alpha = 0.6,
+             trunk.size = 3,
+             branch.size = 1.5,
+             twig.size = 1,
+             k.pos = "right",
+             colour = TRUE,
+             fill = FALSE) +  
+  annotate(geom = "text",
+           x = 1.2,
+           y = 6.2, 
+           label = paste0("italic(I)^{2} == ", round(I2[1],4)),
+           color ="black",
+           parse = TRUE, 
+           size = 3.5) +
+           #scale_colour_manual(values = "darkorange")+ # change colours
+           #scale_fill_manual(values="darkorange")+ 
+           scale_size_continuous(range = c(1, 7)) + # change point scaling
+  ggtitle("") +
+  theme(panel.border = element_rect(colour = "black", 
+                                             fill=NA,
+                                             size=1.3), # border around the plot
+                 text = element_text(size = 15), # change font sizes
+                 legend.title = element_text(size = 12),
+                 legend.text = element_text(size = 10))
+```
+
 ## Model 19: Limit of detection/quantification treatment strategy
 ```{r}
 load(here("RData", "ma_model2.RData"))
-ma_model_rob2 <- robust(ma_model2, dat$measurement_ID_P)
-summary(ma_model_rob2)
+ma_model2 <- robust(ma_model2, dat$measurement_ID_P)
+summary(ma_model2)
 ```
+```{r}
+I2 <- orchaRd::i2_ml(ma_model2)
+
+ma_model_bubble2 <- orchaRd::orchard_plot(ma_model2,
+             mod = "1",
+             group = "study_ID", 
+             xlab = "lnRR",
+             alpha = 0.6,
+             trunk.size = 3,
+             branch.size = 1.5,
+             twig.size = 1,
+             k.pos = "right",
+             colour = TRUE,
+             fill = FALSE) +  
+  annotate(geom = "text",
+           x = 1.2,
+           y = 6.2, 
+           label = paste0("italic(I)^{2} == ", round(I2[1],4)),
+           color ="black",
+           parse = TRUE, 
+           size = 3.5) +
+           #scale_colour_manual(values = "darkorange")+ # change colours
+           #scale_fill_manual(values="darkorange")+ 
+           scale_size_continuous(range = c(1, 7)) + # change point scaling
+  ggtitle("") +
+  theme(panel.border = element_rect(colour = "black", 
+                                             fill=NA,
+                                             size=1.3), # border around the plot
+                 text = element_text(size = 15), # change font sizes
+                 legend.title = element_text(size = 12),
+                 legend.text = element_text(size = 10))
+```
+
 ## Model 20: Missing-cases
 ```{r}
 
