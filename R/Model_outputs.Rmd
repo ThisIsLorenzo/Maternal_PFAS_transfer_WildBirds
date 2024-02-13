@@ -1,0 +1,275 @@
+---
+title: "Maternal transfer of poly- and perfluoroalkyl substances (PFAS) in wild birds: a systematic review and meta-analysis"
+subtitle: "Model outputs"
+author: "Lorenzo Ricolfi"
+date: "2024-02-08"
+output:
+  html_document:
+    code_folding: hide
+    toc: yes
+    toc_float: yes
+    toc_collapsed: yes
+    toc_depth: 2
+    number_sections: no
+    theme: cerulean
+  pdf_document:
+    toc: yes
+    toc_depth: '2'
+---
+
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(
+  message = FALSE, #turning off the display of messages
+  warning = FALSE,#turning off the display of warnings
+  tidy = TRUE, #turning on the "tidy" option (which affects the formatting of code chunks)
+  cache = TRUE, #turning on caching (so that code chunks are only executed if their dependencies have changed)
+  echo = TRUE #turning on the "echo" option (so that code is displayed in the output)
+)
+
+rm(list = ls()) #Effectively clears the environment of any data, functions, or variables that have been defined
+
+# using the pacman package to load multiple packages at once
+pacman::p_load(tidyverse, #a collection of packages for data manipulation, visualization, and modeling, including packages like dplyr, ggplot2, and tidyr
+               readr, #a package for reading and writing tabular data, such as CSV files
+               ape, #a package for analyzing phylogenetics and evolutionary data
+               curl, #a package for transferring data over the internet using various protocols, such as HTTP and FTP
+               rotl, #a package for working with phylogenetic trees, including functions for manipulating and visualizing trees
+               RColorBrewer, #a package for generating color palettes for plotting
+               here, #a package for working with file paths, particularly when working with project-based workflows
+               dm, #a package for working with distance matrices
+               dplyr, #a package for data manipulation, which is already included in the tidyverse package
+               metafor, #a package for conducting meta-analyses
+               meta, #a package for conducting meta-analyses
+               forestplot, #a package for creating forest plots, which are commonly used to display the results of meta-analyses
+               orchaRd, #a package for working with ordination data
+               kableExtra, #a package for creating tables and formatting them in R Markdown documents
+               phytools, #a package for phylogenetic comparative biology
+               patchwork, #a package for combining multiple plots into a single figure
+               clubSandwich, #a package for variance estimation and hypothesis testing in clustered data
+               MuMIn #a package for model selection and multimodel inference
+               )
+dat <- read_csv(here("RData", "dat.csv"))
+```
+# Intercept meta-analytic models
+## Model 1: Overall meta-analytic model
+```{r, echo=FALSE, eval=FALSE}
+ma_model <- rma.mv(yi = lnRR,
+             V = VCV_lnRR, 
+             random = list(~1|study_ID,
+                           ~1|pfas_ID,
+                           ~1|es_ID
+              ),
+             test = "t",
+             data = dat)
+ma_model_rob <- robust(ma_model, dat$measurement_ID_P)
+```
+
+```{r}
+load(here("RData", "ma_model_rob.RData"))
+summary(ma_model_rob)
+i2_ml(ma_model_rob)
+```
+## Model 2: Meta-analytic model with all random effects
+```{r}
+load(here("RData", "ma_all_random_effects.RData"))
+summary(ma_all_random_effects)
+i2_ml(ma_all_random_effects)
+```
+
+## Model 3: Meta-analytic model without albumen data
+
+```{r}
+load(here("RData", "ma_model_no_albumen_rob.RData"))
+summary(ma_model_no_albumen_rob)
+i2_ml(ma_model_no_albumen_rob)
+```
+# Single-moderator metaregression models
+## Model 4: Carbon chain length
+
+```{r, echo=FALSE}
+dat_ccl <- dat[complete.cases(dat[ , "carbon_chain_length"]),]
+```
+
+```{r}
+load(here("RData", "ccl_model.RData"))
+summary(ccl_model)
+r2_ml(ccl_model, dat_ccl)
+```
+
+## Model 5: Molecular weight
+
+```{r}
+load(here("RData", "mw_model.RData"))
+summary(mw_model)
+r2_ml(mw_model, dat)
+```
+
+## Model 6: Functional group
+
+```{r}
+load(here("RData", "fun_gro_model.RData"))
+summary(fun_gro_model)
+r2_ml(fun_gro_model, dat_fg)
+```
+
+## Model 7: Clutch size
+
+```{r}
+load(here("RData", "clutch_size_model.RData"))
+summary(clutch_size_model)
+r2_ml(clutch_size_model, dat)
+```
+
+## Model 8: Egg weight
+```{r, echo=FALSE}
+sum(is.na(dat$egg_weight_mean))
+#[1] 67
+dat_egg_weight <- dat[complete.cases(dat[ , "egg_weight_mean"]),] #removing NAs
+sum(is.na(dat_egg_weight$egg_weight_mean))
+#[1] 0
+```
+```{r}
+load(here("RData", "egg_weight_model.RData"))
+summary(egg_weight_model)
+r2_ml(egg_weight_model, dat_egg_weight)
+```
+
+## Model 9: Body weight
+```{r}
+load(here("RData", "body_weight_model.RData"))
+summary(body_weight_model)
+r2_ml(body_weight_model, dat)
+```
+
+## Model 10: Laying order
+```{r}
+load(here("RData", "laying_order_model.RData"))
+summary(laying_order_model)
+r2_ml(laying_order_model, dat)
+```
+## Model 11: Adult type of tissue
+```{r}
+load(here("RData", "sample_type_a_model.RData"))
+sample_type_a_model_rob <- robust(sample_type_a_model, dat$measurement_ID_P)
+summary(sample_type_a_model_rob)
+r2_ml(sample_type_a_model_rob, dat)
+```
+## Model 12: Progeny type of tissue (or egg part)
+```{r}
+load(here("RData", "sample_type_p_model.RData"))
+sample_type_p_model_rob <- robust(sample_type_p_model, dat$measurement_ID_P)
+summary(sample_type_p_model_rob)
+r2_ml(sample_type_p_model_rob, dat)
+```
+## Model 13: Bird's diet
+```{r, echo=FALSE}
+sum(is.na(dat$diet))
+#[1] 0
+
+dat_diet <- dat %>%
+  mutate(diet = case_when(
+    diet == "Piscivorous, avivorous and kleptoparasite" ~ "Diet type 1",
+    diet == "Piscivorous" ~ "Diet type 2",
+    diet == "Opportunistic and diverse" ~ "Diet type 3",
+    diet == "Omnivorous" ~ "Diet type 4",
+    diet == "Insectivorous" ~ "Diet type 5",
+    TRUE ~ diet
+  ))
+```
+```{r}
+load(here("RData", "diet_model.RData"))
+diet_model_rob <- robust(diet_model, dat_diet$measurement_ID_P)
+summary(diet_model_rob)
+r2_ml(diet_model_rob, dat_diet)
+```
+
+# Multi-moderator Model
+## Model 14
+```{r, echo=FALSE, eval=FALSE}
+full_model0 <- rma.mv(yi = lnRR,
+                      V = VCV_lnRR, 
+                      mods = ~1 + 
+                        functional_group +
+                        scale(carbon_chain_length) +
+                        sample_type_A +
+                        sample_type_P +
+                        scale(clutch_size) +
+                        scale(body_weight_mean) +
+                        scale(egg_weight_mean) +
+                        diet +
+                        life_stage_P,
+                      random = list(~1|study_ID,
+                                    ~1|pfas_ID, 
+                                    ~1|es_ID
+                                    ),
+                      test = "t",
+                      data = dat,
+                      sparse = TRUE)
+```
+```{r}
+load(here("RData", "full_model0.RData"))
+summary(full_model0)
+r2_ml(full_model0, dat)
+```
+
+# Publication bias
+## Model 15: Small study effect bias
+```{r, echo=FALSE, eval=FALSE}
+MLMR_mod_ess.se <- rma.mv(yi = lnRR, 
+                               V = VCV_lnRR, 
+                               mods = ~ ess.se, # add adjusted based sampling error - tilde square root n as a moderator to test small study effect (see section "lnRR and variance calculations).
+                               random = list(~1|study_ID,
+                                          ~1|pfas_ID, 
+                                          ~1|es_ID
+                                          ), 
+                               method = "REML", 
+                               test = "t", 
+                               data = dat
+                               )
+```
+```{r}
+load(here("RData", "MLMR_mod_ess.se.RData"))
+summary(MLMR_mod_ess.se)
+```
+## Model 16: Time-lag bias
+```{r}
+load(here("RData", "MLMR_mod_year.c.RData"))
+summary(MLMR_mod_year.c)
+```
+# Sensitivity analyses
+## Model 17: Leave-one-out-analyses
+```{r}
+MA_oneout <- readRDS(here("Rdata", "MA_oneout.RDS"))
+
+# plotting
+leaveoneout <- ggplot(MA_oneout) + geom_hline(yintercept = 0, lty = 2, lwd = 1) +
+
+  geom_hline(yintercept = ma_model_rob$ci.lb, lty = 3, lwd = 0.75, colour = "black") +
+  geom_hline(yintercept = ma_model_rob$b, lty = 1, lwd = 0.75, colour = "black") + 
+  geom_hline(yintercept = ma_model_rob$ci.ub,
+             lty = 3, lwd = 0.75, colour = "black") + 
+  geom_pointrange(aes(x = left_out, y = est,
+                      ymin = lower, ymax = upper)) + 
+  xlab("Study left out") + 
+  ylab("lnRR (effect size), 95% CI") +
+  coord_flip() + 
+  theme(panel.grid.minor = element_blank()) + theme_bw() + theme(panel.grid.major = element_blank()) +
+  theme(panel.grid.minor.x = element_blank()) + theme(axis.text.y = element_text(size = 6))
+
+leaveoneout
+```
+## Model 18: Adult female concentrations and same nest data only
+```{r}
+load(here("RData", "dat2_sa_model_rob.RData"))
+summary(dat2_sa_model_rob)
+```
+## Model 19: Limit of detection/quantification treatment strategy
+```{r}
+load(here("RData", "ma_model2.RData"))
+ma_model_rob2 <- robust(ma_model2, dat$measurement_ID_P)
+summary(ma_model_rob2)
+```
+## Model 20: Missing-cases
+```{r}
+
+```
