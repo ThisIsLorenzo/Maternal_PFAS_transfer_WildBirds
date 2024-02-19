@@ -2120,6 +2120,10 @@ ma_model_orchard_sa <- orchaRd::orchard_plot(ma_model_sa,
   xlab("Intercept")
 
 ma_model_orchard_sa
+
+# ggsave(here("figs/Suppl_figs","Sfig10.png"),
+#        width = 7,
+#        height = 5)
 ```
 
 
