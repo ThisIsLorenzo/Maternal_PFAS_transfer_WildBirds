@@ -3,8 +3,8 @@ title: "Maternal transfer of poly- and perfluoroalkyl substances (PFAS) in wild 
 subtitle: "Supplementary Information - Model outputs"
 author: "Lorenzo Ricolfi"
 date: "2024-02-19"
-output: html_document
-html_document:
+output:
+  html_document:
     code_folding: hide
     toc: yes
     toc_float: yes
@@ -12,12 +12,12 @@ html_document:
     toc_depth: 2
     number_sections: no
     theme: cerulean
-pdf_document:
+  pdf_document:
     toc: yes
     toc_depth: '2'
 ---
 
-```{r setup, echo=FALSE}
+```{r setup, echo=FALSE, message=FALSE}
 knitr::opts_chunk$set(
   message = FALSE, #turning off the display of messages
   warning = FALSE,#turning off the display of warnings
@@ -38,9 +38,27 @@ pacman::p_load(tidyverse, #a collection of packages for data manipulation, visua
                orchaRd, #a package for working with ordination data
                kableExtra, #a package for creating tables and formatting them in R Markdown documents
                patchwork, #a package for combining multiple plots into a single figure
-               MuMIn #a package for model selection and multimodel inference
+               MuMIn, #a package for model selection and multimodel inference,
+               ape,
+               curl,
+               rotl
                )
-dat <- read_csv(here("RData", "dat.csv"))
+dat <- read_csv(here("RData", "dat.csv"), show_col_types = FALSE)
+```
+
+# Phylogenetic tree
+For more information on the construction of the tree, see file "tree_MA_MT_PFAS.Rmd".
+
+```{r, load the tree}
+tree <- read.tree(here("R", "phylogenetic_tree.tre")) #if you need to read in the tree
+tree$tip.label <- gsub("_"," ", tree$tip.label) #get rid of the underscores
+tree$node.label <- NULL #you can delete internal node labels
+#*NOTE:* underscores within species names on tree tip labels are added automatically
+plot(tree, cex=1.1, label.offset =.1, no.margin = TRUE)
+#or plot to pdf
+# pdf("figs/phylogenetic_tree.pdf", width=8, heigh=16)
+# plot(tree, cex=1.5, label.offset =.1, no.margin = TRUE)
+#dev.off()
 ```
 
 # Intercept meta-analytic models
