@@ -613,7 +613,7 @@ dat$ess.se <- sqrt(dat$N_tilde) # calculate adapted sampling error based on effe
 dat <- cbind(dat, lnRR, var_lnRR) # Merge effect sizes with the data frame
 ```
 
-Saving the dat file so we can use it to run model in the Model Outputs associated file.
+Saving the dat file so we can use it to run models in the Model Outputs associated file.
 
 ```{r}
 write.csv(dat, here("RData", "dat.csv"))
@@ -754,7 +754,7 @@ ma_all_random_effects <- rma.mv(yi = lnRR,
              R = list(Phylogeny = cor_tree),
              test = "t",
              data = dat)
-
+ma_all_random_effects <- robust(ma_all_random_effects, dat$measurement_ID_P)
 save(ma_all_random_effects, file = here("Rdata", "ma_all_random_effects.RData"))
 ```
 
@@ -1034,7 +1034,8 @@ fig_ccl <- bubble_plot(ccl_bubble,
            size = 4) +
   ggtitle("a)") +
   theme(plot.title = element_text(size = 18),
-        legend.position = "none",
+        legend.title = element_text(size = 11),
+        legend.text = element_text(size = 9),
         axis.title.x = element_text(size = 16),
         axis.title.y = element_text(size = 16),
         axis.text.y = element_text(size = 14),
@@ -1081,15 +1082,16 @@ fig_mw <- orchaRd::bubble_plot(mw_bubble,
             pi.col = "black",
             g = TRUE) +
   annotate(geom ="text",
-           x= 350,
-           y= 6, 
+           x = 350,
+           y = 6, 
            label= paste0("italic(R)^{2} == ", round(r2_mw[1],4)),
            color="black",
            parse = TRUE, 
            size = 4) +
   ggtitle("b)") +
   theme(plot.title = element_text(size = 18),
-        legend.position = "none",
+        legend.title = element_text(size = 11),
+        legend.text = element_text(size = 9),
         axis.title.x = element_text(size = 16),
         axis.title.y = element_text(size = 16),
         axis.text.y = element_text(size = 14),
@@ -1159,7 +1161,8 @@ fig_fg <- orchard_plot(fun_gro_model,
            size = 4) +
   ggtitle("c)")+
   theme(plot.title = element_text(size = 18),
-        legend.position = "none",
+       legend.title = element_text(size = 11),
+        legend.text = element_text(size = 9),
         axis.title.x = element_text(size = 16),
         axis.title.y = element_text(size = 16),
         axis.text.y = element_text(size = 14),
@@ -1218,7 +1221,8 @@ fig_clutch_size <- bubble_plot(clutch_size_model,
            size = 4) +
   ggtitle("a)") +
   theme(plot.title = element_text(size = 19),
-        legend.position = "none",
+        legend.title = element_text(size = 11),
+        legend.text = element_text(size = 9),
         axis.title.x = element_text(size = 17),
         axis.title.y = element_text(size = 17),
         axis.text = element_text(size = 15)) +
@@ -1273,12 +1277,13 @@ fig_egg_weight <- bubble_plot(egg_weight_model,
            size = 4) +
   ggtitle("b)") +
   theme(plot.title = element_text(size = 19),
-        legend.position = "none",
+         legend.title = element_text(size = 11),
+        legend.text = element_text(size = 9),
         axis.title.x = element_text(size = 17),
         axis.title.y = element_text(size = 17),
         axis.text = element_text(size = 15)) +
   xlab("Egg weight")
-
+fig_egg_weight
 # ggsave(here("figs","fig4_b.png"),
 #        width = 9,
 #        height = 7)
@@ -1320,12 +1325,13 @@ fig_body_weight <- bubble_plot(body_weight_model,
            size = 4) +
   ggtitle("c)") +
   theme(plot.title = element_text(size = 19),
-        legend.position = "none",
+       legend.title = element_text(size = 11),
+        legend.text = element_text(size = 9),
         axis.title.x = element_text(size = 17),
         axis.title.y = element_text(size = 17),
         axis.text = element_text(size = 15)) +
   xlab("Body weight")
-
+fig_body_weight
 # ggsave(here("figs","fig4_c.png"),
 #        width = 9,
 #        height = 7)
@@ -1364,11 +1370,13 @@ fig_laying_order <- bubble_plot(laying_order_model,
            size = 4) +
   ggtitle("d)") +
   theme(plot.title = element_text(size = 19),
-        legend.position = "none",
+        legend.title = element_text(size = 11),
+        legend.text = element_text(size = 9),
         axis.title.x = element_text(size = 17),
         axis.title.y = element_text(size = 17),
         axis.text = element_text(size = 15)) +
   xlab("Laying order")
+fig_laying_order
 #laying order has many NAs. Thus, it won't be added to the full model.
 
 # ggsave(here("figs","fig4_d.png"),
@@ -1423,12 +1431,13 @@ fig_sample_a <- orchard_plot(sample_type_a_model_rob,
            size = 3) +
   ggtitle("a)") +
   theme(plot.title = element_text(size = 16),
-        legend.position = "none",
+         legend.title = element_text(size = 11),
+        legend.text = element_text(size = 9),
         axis.title.x = element_text(size = 14),
         axis.title.y = element_text(size = 14),
         axis.text.y = element_text(size = 12),
        axis.text.x = element_text(size = 12))
-
+fig_sample_a
 # ggsave(here("figs","fig5_a.png"),
 #        width = 9,
 #        height = 7)
@@ -1471,7 +1480,8 @@ fig_sample_p <- orchard_plot(sample_type_p_model_rob,
            size = 3) +
   ggtitle("b)") +
   theme(plot.title = element_text(size = 16),
-        legend.position = "none",
+        legend.title = element_text(size = 11),
+        legend.text = element_text(size = 9),
         axis.title.x = element_text(size = 14),
         axis.title.y = element_text(size = 14),
         axis.text.y = element_text(size = 12),
@@ -1534,7 +1544,8 @@ fig_diet <- orchard_plot(diet_model_rob,
            size = 3) +
   ggtitle("c)") +
   theme(plot.title = element_text(size = 16),
-        legend.position = "none",
+         legend.title = element_text(size = 11),
+        legend.text = element_text(size = 9),
         axis.title.x = element_text(size = 14),
         axis.title.y = element_text(size = 14),
         axis.text.y = element_text(size = 12),
@@ -2056,10 +2067,63 @@ class(ma_model2)
 # [1] "robust.rma" "rma"        "rma.mv"  
 ```
 
-## Missing-cases
+## Dataset without SD values imputation
 
 ```{r}
+data_sa <- escalc(measure = "ROM",
+                  m1i = mean_P,
+                  m2i = mean_A, 
+                  sd1i = sd_P, 
+                  sd2i = sd_A, 
+                  n1i = n_P,
+                  n2i = n_A, 
+                  data = dat %>% filter(sd_A > 0))
 
+VCV_sa <- impute_covariance_matrix(data_sa$vi,
+                                     cluster = data_sa$measurement_ID_A, 
+                                     r = 0.5)
+
+ma_model_sa <- rma.mv(yi = yi,
+             V = VCV_sa, 
+             random = list(~1|study_ID,
+                           #~1|pfas_ID,
+                           ~1|es_ID
+              ),
+             test = "t",
+             data = data_sa)
+ma_model_sa <- robust(ma_model_sa, data_sa$measurement_ID_P)
+save(ma_model_sa, file = here("Rdata", "ma_model_sa.RData"))
+```
+
+
+```{r}
+load(here("RData", "ma_model_sa.RData"))
+summary(ma_model_sa)
+ma_model_orchard_sa <- orchaRd::orchard_plot(ma_model_sa,
+             mod = "1",
+             group = "study_ID", 
+             xlab = "lnRR",
+             alpha = 0.6,
+             trunk.size = 3,
+             branch.size = 1.5,
+             twig.size = 1,
+             k.pos = "right",
+             colour = TRUE,
+             fill = FALSE) + 
+           scale_size_continuous(range = c(1, 7)) + # change point scaling
+  theme(panel.border = element_rect(colour = "black", 
+                                             fill=NA,
+                                             size=1.3), # border around the plot
+                 text = element_text(size = 15), # change font sizes
+                 legend.title = element_text(size = 12),
+                 legend.text = element_text(size = 10)) +
+  xlab("Intercept")
+
+ma_model_orchard_sa
+```
+
+
+```{r}
 ```
 
 

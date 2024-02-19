@@ -518,7 +518,7 @@ r2_ml(diet_model_rob, dat_diet)
 ```{r}
 r2_diet <- r2_ml(diet_model_rob, dat_diet)
 
-fig_diet <- orchard_plot(diet_model_rob,
+orchard_plot(diet_model_rob,
              mod = "diet",
              group = "study_ID",
              xlab = "lnRR",
@@ -605,7 +605,7 @@ pb_bubble <- orchaRd::mod_results(MLMR_mod_year.c,
                                   group = "study_ID",
                                   data = dat)
 
-bias2 <- orchaRd::bubble_plot(pb_bubble,
+orchaRd::bubble_plot(pb_bubble,
                      group = "study_ID",
                      mod = "year_publication",
                      xlab = "Publication year", 
@@ -693,7 +693,7 @@ summary(ma_model2)
 ```{r}
 I2 <- orchaRd::i2_ml(ma_model2)
 
-ma_model_bubble2 <- orchaRd::orchard_plot(ma_model2,
+orchaRd::orchard_plot(ma_model2,
              mod = "1",
              group = "study_ID", 
              xlab = "lnRR",
@@ -723,7 +723,38 @@ ma_model_bubble2 <- orchaRd::orchard_plot(ma_model2,
                  legend.text = element_text(size = 10))
 ```
 
-## Model 20: Missing-cases
+## Model 20: Dataset without SD values imputation
 ```{r}
-
+load(here("RData", "ma_model_sa.RData"))
+summary(ma_model_sa)
+```
+```{r}
+I2 <- orchaRd::i2_ml(ma_model_sa)
+orchaRd::orchard_plot(ma_model_sa,
+             mod = "1",
+             group = "study_ID", 
+             xlab = "lnRR",
+             alpha = 0.6,
+             trunk.size = 3,
+             branch.size = 1.5,
+             twig.size = 1,
+             k.pos = "right",
+             colour = TRUE,
+             fill = FALSE) + 
+  annotate(geom = "text",
+           x = 1.2,
+           y = 6.2, 
+           label = paste0("italic(I)^{2} == ", round(I2[1],4)),
+           color ="black",
+           parse = TRUE, 
+           size = 3.5) +
+           #scale_colour_manual(values = "darkorange")+ # change colours
+           #scale_fill_manual(values="darkorange")+ 
+           scale_size_continuous(range = c(1, 7)) + # change point scaling
+  theme(panel.border = element_rect(colour = "black", 
+                                             fill=NA,
+                                             size=1.3), # border around the plot
+                 text = element_text(size = 15), # change font sizes
+                 legend.title = element_text(size = 12),
+                 legend.text = element_text(size = 10))
 ```
