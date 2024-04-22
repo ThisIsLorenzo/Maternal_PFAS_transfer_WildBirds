@@ -1,5 +1,5 @@
 ---
-title: "Maternal transfer of poly- and perfluoroalkyl substances (PFAS) in wild birds: a systematic review and meta-analysis"
+title: "Maternal transfer of per- and polyfluoroalkyl substances (PFAS) in wild birds: a systematic review and meta-analysis"
 subtitle: "Supplementary Information - Model outputs"
 author: "Lorenzo Ricolfi"
 date: "2024-02-19"
@@ -586,9 +586,35 @@ orchard_plot(diet_model_rob,
        axis.text.x = element_text(size = 12))
 ```
 
+## Model 14: Life stage progeny (egg OR chick)
+
+```{r}
+load(here("RData", "life_stage_model.RData"))
+
+summary(life_stage_model)
+r2_ml(life_stage_model, dat)
+   # R2_marginal R2_conditional 
+   #  0.00278897     0.07829010 
+
+fig_life_stage_p <- orchard_plot(life_stage_model,
+             mod = "life_stage_P",
+             group = "study_ID",
+             xlab = "lnRR",
+             angle = 45,
+             colour = FALSE,
+             fill = FALSE,
+             trunk.size = 2,
+             branch.size = 1,
+             twig.size = 0.5) +
+  ggtitle("") +
+  theme(plot.title = element_text(face = "bold"))
+
+fig_life_stage_p
+```
+
 # Multi-moderator Model
 
-## Model 14
+## Model 15
 
 ```{r, echo=FALSE, eval=FALSE}
 full_model0 <- rma.mv(yi = lnRR,
@@ -620,7 +646,7 @@ r2_ml(full_model0, dat)
 
 # Publication bias
 
-## Model 15: Small study effect bias
+## Model 16: Small study effect bias
 
 ```{r, echo=FALSE, eval=FALSE}
 MLMR_mod_ess.se <- rma.mv(yi = lnRR, 
@@ -641,7 +667,7 @@ load(here("RData", "MLMR_mod_ess.se.RData"))
 summary(MLMR_mod_ess.se)
 ```
 
-## Model 16: Time-lag bias
+## Model 17: Time-lag bias
 
 ```{r}
 load(here("RData", "MLMR_mod_year.c.RData"))
@@ -676,7 +702,7 @@ orchaRd::bubble_plot(pb_bubble,
 
 # Sensitivity analyses
 
-## Model 17: Leave-one-out-analyses
+## Model 18: Leave-one-out-analyses
 
 ```{r}
 MA_oneout <- readRDS(here("Rdata", "MA_oneout.RDS"))
@@ -699,7 +725,7 @@ leaveoneout <- ggplot(MA_oneout) + geom_hline(yintercept = 0, lty = 2, lwd = 1) 
 leaveoneout
 ```
 
-## Model 18: Adult female concentrations and same nest data only
+## Model 19: Adult female concentrations and same nest data only
 
 ```{r}
 load(here("RData", "dat2_sa_model.RData"))
@@ -738,7 +764,7 @@ orchaRd::orchard_plot(dat2_sa_model,
                  legend.text = element_text(size = 10))
 ```
 
-## Model 19: Limit of detection/quantification treatment strategy
+## Model 20: Limit of detection/quantification treatment strategy
 
 ```{r}
 load(here("RData", "ma_model2.RData"))
@@ -779,7 +805,7 @@ orchaRd::orchard_plot(ma_model2,
                  legend.text = element_text(size = 10))
 ```
 
-## Model 20: Dataset without SD values imputation
+## Model 21: Dataset without SD values imputation
 
 ```{r}
 load(here("RData", "ma_model_sa.RData"))

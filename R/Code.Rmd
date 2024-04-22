@@ -710,7 +710,7 @@ plot_sample_sizes <- ggplot(table_sample_sizes_df, aes(x = variable,
   geom_col(aes(fill = ""), width = 0.5) +
   geom_text(aes(label = `n (sample size)`),
             position = position_stack(vjust = 0.5),
-            size = 3) +
+            size = 3.5) +
   coord_flip() +
   theme_light() +
   scale_x_discrete(name = "") +
@@ -721,7 +721,7 @@ plot_sample_sizes <- ggplot(table_sample_sizes_df, aes(x = variable,
   theme(legend.position = "none",
         axis.title.x = element_text(size = 11),
         axis.title.y = element_text(size = 11),
-        axis.text = element_text(size = 10),
+        axis.text = element_text(size = 10, color = "black"),
         panel.grid.major = element_line(color = "grey", 
                                        linewidth  = 0.2, 
                                        linetype = "dashed"),
@@ -730,9 +730,9 @@ plot_sample_sizes <- ggplot(table_sample_sizes_df, aes(x = variable,
                                       linetype = "dotted"))
 plot_sample_sizes
 
-# ggsave(here("figs", "fig1_a.png"),
-#        width = 6,
-#        height = 3)
+ggsave(here("figs", "fig1_a.png"),
+       width = 6,
+       height = 3)
 
 ```
 
@@ -842,9 +842,10 @@ ma_model_bubble <- orchaRd::orchard_plot(ma_model,
   theme(panel.border = element_rect(colour = "black", 
                                              fill=NA,
                                              size=1.3), # border around the plot
-                 text = element_text(size = 15), # change font sizes
-                 legend.title = element_text(size = 12),
-                 legend.text = element_text(size = 10)) +
+                 text = element_text(size = 9), # change font sizes
+                 legend.title = element_text(size = 8),
+                 legend.text = element_text(size = 7),
+        axis.text.y = element_blank()) +
   xlab("Intercept")
 
 
@@ -886,23 +887,25 @@ ma_model_bubble2 <- orchaRd::orchard_plot(ma_model,
   theme(panel.border = element_rect(colour = "black", 
                                              fill=NA,
                                              size=1.3), # border around the plot
-                 text = element_text(size = 15), # change font sizes
-                 legend.title = element_text(size = 12),
-                 legend.text = element_text(size = 10)) +
+                 text = element_text(size = 9), # change font sizes
+                 legend.title = element_text(size = 8),
+                 legend.text = element_text(size = 7),
+        axis.text.y = element_blank()) +
   xlab("Intercept")
 
-ma_model_bubble2
+ma_model_bubble2 
 
-ggsave(here("figs","fig2_b.png"),
-       width = 7,
-       height = 5)
+# ggsave(here("figs","fig2_b.png"),
+#        width = 7,
+#        height = 5)
 ```
 
 ```{r}
 ma_model_bubble/ma_model_bubble2
-# ggsave(here("figs","fig2.png"),
-#        width = 7,
-#        height = 7)
+ggsave(here("figs","fig2.jpg"),
+       width = 6,
+       height = 5,
+       dpi = 300)
 ```
 
 
@@ -1741,25 +1744,31 @@ Publication bias is the phenomenon where studies with certain characteristics, s
 ## Funnel plot
 
 ```{r}
+pdf(NULL)
+dev.control(displaylist="enable")
+# png(here("figs","figX.png"), width = 6,
+#        height = 7, units = "in", res = 600)
 # Increase text size for x and y axes
 par(cex.axis = 1.5)
 
 # Increase label size for x and y axes
 par(cex.lab = 1.5)
 
-fig_funnel <- funnel(
-  full_model0, 
-  yaxis = "seinv", # Inverse of standard error (precision) as the y axis
-  level = c(90, 95),  # levels of statistical significance highlighted 
-  shade = c("white", "gray55"), # shades for different levels of statistical significance
-  back = "#EBEBEB",
-  legend = FALSE, # display legend
-  ylab = "Precision (1/SE)", 
-  cex.lab = 1.5, 
-  digits = 1, 
-  xlim = c(-5,5)
-  )+
-  ggtitle("a)") 
+
+fig_funnel <- funnel(full_model0,
+       yaxis = "seinv",
+       level = c(90, 95),
+       shade = c("white", "gray55"),
+       back = "#EBEBEB",
+       legend = FALSE,
+       ylab = "Precision (1/SE)",
+       cex.lab = 1.5,
+       digits = 1,
+       xlim = c(-5,5)
+       )
+
+fig_funnel <- recordPlot()
+invisible(dev.off())
 ```
 
 
@@ -1801,7 +1810,7 @@ bias1 <- orchaRd::bubble_plot(pb2_bubble,
             ci.col = "red",
             pi.col = "black",
             est.col = "black") +
-  ggtitle("b)") +
+  ggtitle("") +
   theme(plot.title = element_text(size = 18),
         axis.title.x = element_text(size = 16),
         axis.title.y = element_text(size = 16),
@@ -1810,9 +1819,9 @@ bias1 <- orchaRd::bubble_plot(pb2_bubble,
   xlab("Adjusted standard error") +
   ylab("lnRR")
 
-ggsave(here("figs","fig7_b.png"),
-       width = 9,
-       height = 7)
+# ggsave(here("figs","fig7_b.png"),
+#        width = 9,
+#        height = 7)
 ```
 
 If we look at ess.se given under Model Results: p-value and 95% CIs suggest that there is no statistical relationship between the effect size its error, meaning that no small study effect exits.
@@ -1849,7 +1858,7 @@ bias2 <- orchaRd::bubble_plot(pb_bubble,
             ci.col = "red",
             pi.col = "black",
             est.col = "black") +
-  ggtitle("c)") +
+  ggtitle("") +
   theme(plot.title = element_text(size = 18),
         axis.title.x = element_text(size = 16),
         axis.title.y = element_text(size = 16),
@@ -1866,11 +1875,11 @@ bias2 <- orchaRd::bubble_plot(pb_bubble,
 p-value and 95% CIs suggest that there is no statistical relationship between the publication year and its error, meaning that no publication bias effect exits.
 
 ```{r}
-(bias1 / bias2)
+(plot_grid(fig_funnel) + (ggdraw(bias1) / ggdraw(bias2))) + plot_layout(tag_level = 'new') +  plot_annotation(tag_levels = list(c("a)", "b)", "c)")))
 
-# ggsave(here("figs","fig7.png"),
-#        width = 8,
-#        height = 8)
+ggsave(here("figs","fig7.png"),
+       width = 10,
+       height = 8)
 ```
 # Sensitivity analyses
 
