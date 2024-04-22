@@ -976,7 +976,7 @@ orchaRd::orchard_plot(ma_model_no_albumen,
                  legend.text = element_text(size = 13)) +
   xlab("Intercept")
 
-# ggsave(here("figs/Suppl_figs","Sfig5.png"),
+# ggsave(here("figs/Suppl_figs","Sfig6.png"),
 #        width = 6,
 #        height = 4)
 ```
@@ -1584,13 +1584,12 @@ save(life_stage_model, file = here("Rdata", "life_stage_model.RData"))
 
 ```{r}
 load(here("RData", "life_stage_model.RData"))
-life_stage_model_rob <- robust(life_stage_model, dat$measurement_ID_P)
 summary(life_stage_model)
 r2_ml(life_stage_model, dat)
    # R2_marginal R2_conditional 
    #  0.00278897     0.07829010 
 
-fig_life_stage_p <- orchard_plot(life_stage_model_rob,
+fig_life_stage_p <- orchard_plot(life_stage_model,
              mod = "life_stage_P",
              group = "study_ID",
              xlab = "lnRR",
@@ -1605,9 +1604,9 @@ fig_life_stage_p <- orchard_plot(life_stage_model_rob,
 
 fig_life_stage_p
 
-# ggsave(here("figs/Suppl_figs","Sfig6.png"),
-#        width = 5,
-#        height = 5)
+ggsave(here("figs/Suppl_figs","Sfig7.png"),
+       width = 5,
+       height = 5)
 ```
 
 #Multi-moderator model
@@ -1949,7 +1948,7 @@ leaveoneout <- ggplot(MA_oneout) + geom_hline(yintercept = 0, lty = 2, lwd = 1) 
 leaveoneout
 
 #Save the plot
-# ggsave(here("figs/Suppl_figs","Sfig7.png"),
+# ggsave(here("figs/Suppl_figs","Sfig8.png"),
 #        width = 7,
 #        height = 5)
 ```
@@ -2016,7 +2015,7 @@ orchaRd::orchard_plot(dat2_sa_model,
                  legend.title = element_text(size = 12),
                  legend.text = element_text(size = 10))
 
-# ggsave(here("figs/Suppl_figs","Sfig8.png"),
+# ggsave(here("figs/Suppl_figs","Sfig9.png"),
 #        width = 8,
 #        height = 6)
 ```
@@ -2067,7 +2066,7 @@ ma_model_bubble2 <- orchaRd::orchard_plot(ma_model2,
 
 ma_model_bubble2
 #Save the plot
-# ggsave(here("figs/Suppl_figs","Sfig10.png"),
+# ggsave(here("figs/Suppl_figs","Sfig11.png"),
 #        width = 7,
 #        height = 5)
 
@@ -2078,7 +2077,7 @@ class(ma_model2)
 
 ## Dataset without SD values imputation
 
-```{r}
+```{r, eval=FALSE}
 data_sa <- escalc(measure = "ROM",
                   m1i = mean_P,
                   m2i = mean_A, 
@@ -2103,7 +2102,6 @@ ma_model_sa <- rma.mv(yi = yi,
 ma_model_sa <- robust(ma_model_sa, data_sa$measurement_ID_P)
 save(ma_model_sa, file = here("Rdata", "ma_model_sa.RData"))
 ```
-
 
 ```{r}
 load(here("RData", "ma_model_sa.RData"))
