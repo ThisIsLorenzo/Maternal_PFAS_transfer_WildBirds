@@ -1,7 +1,7 @@
 ---
 title: "Maternal transfer of per- and polyfluoroalkyl substances (PFAS) in wild birds: a systematic review and meta-analysis"
 subtitle: "Supplementary Information - Model outputs"
-author: "Lorenzo Ricolfi"
+author: "Anonymous author"
 date: "2024-02-19"
 output:
   html_document:
@@ -18,6 +18,7 @@ output:
 ---
 
 ```{r setup, echo=FALSE, message=FALSE}
+options(repr.matrix.max.cols=Inf, repr.matrix.max.rows=Inf)
 knitr::opts_chunk$set(
   message = FALSE, #turning off the display of messages
   warning = FALSE,#turning off the display of warnings
@@ -50,10 +51,10 @@ dat <- read_csv(here("RData", "dat.csv"), show_col_types = FALSE)
 For more information on the construction of the tree, see file "tree_MA_MT_PFAS.Rmd".
 
 ```{r, load the tree}
-tree <- read.tree(here("R", "phylogenetic_tree.tre")) #if you need to read in the tree
+tree <- read.tree(here("R", "phylogenetic_tree.tre")) #check tree_MA_MT_PFAS.Rmd for tree construction
 tree$tip.label <- gsub("_"," ", tree$tip.label) #get rid of the underscores
-tree$node.label <- NULL #you can delete internal node labels
-#*NOTE:* underscores within species names on tree tip labels are added automatically
+tree$node.label <- NULL #deleting internal node labels
+
 plot(tree, cex=1.1, label.offset =.1, no.margin = TRUE)
 #or plot to pdf
 # pdf("figs/phylogenetic_tree.pdf", width=8, heigh=16)
@@ -65,7 +66,7 @@ plot(tree, cex=1.1, label.offset =.1, no.margin = TRUE)
 
 ## Model 1: Overall meta-analytic model
 
-```{r, echo=FALSE, eval=FALSE}
+```{r, eval=FALSE}
 ma_model <- rma.mv(yi = lnRR,
              V = VCV_lnRR, 
              random = list(~1|study_ID,
@@ -118,6 +119,21 @@ orchaRd::orchard_plot(ma_model,
 
 ## Model 2: Meta-analytic model with all random effects
 
+```{r, eval=FALSE}
+ma_all_random_effects <- rma.mv(yi = lnRR,
+                                V = VCV_lnRR, # Add `VCV_lnRR` to account for correlated errors
+             random = list(~1|study_ID, # Between-study effect
+                           ~1|Phylogeny, # Phylogenetic correlation between species
+                           ~1|species_ID, # Between species effect
+                           ~1|pfas_ID, # Between type of PFAS effect
+                           ~1|es_ID # Within-study effect
+              ),
+             R = list(Phylogeny = cor_tree),
+             test = "t",
+             data = dat)
+ma_all_random_effects <- robust(ma_all_random_effects, dat$measurement_ID_P)
+```
+
 ```{r}
 load(here("RData", "ma_all_random_effects.RData"))
 summary(ma_all_random_effects)
@@ -125,6 +141,19 @@ i2_ml(ma_all_random_effects)
 ```
 
 ## Model 3: Meta-analytic model without albumen data
+
+```{r, eval=FALSE}
+ma_model_no_albumen <- rma.mv(yi = lnRR,
+             V = VCV_lnRR_no_albumen, 
+             random = list(~1|study_ID,
+                           ~1|pfas_ID,
+                           ~1|es_ID
+              ),
+             test = "t",
+             data = dat_no_albumen)
+
+ma_model_no_albumen <- robust(ma_model_no_albumen, dat_no_albumen$measurement_ID_P)
+```
 
 ```{r}
 load(here("RData", "ma_model_no_albumen.RData"))
@@ -165,12 +194,42 @@ orchaRd::orchard_plot(ma_model_no_albumen,
 
 ```
 
+# Model runnig function
+The following function was used to run meta-regression analysis
+```{r}
+run_model <- function(data, formula){
+  data <- as.data.frame(data) # convert data set into a data frame to calculate VCV matrix 
+  VCV <- impute_covariance_matrix(data$var_lnRR,
+                                     cluster = data$measurement_ID_A,
+                                     r = 0.5) # create VCV matrix for the specified data
+  rma.mv(lnRR,
+         var_lnRR, # run the model, as described earlier
+         mods = formula,
+         random = list(~1|study_ID,
+                       ~1|pfas_ID,
+                       ~1|es_ID),
+         test = "t",
+         data = data,
+         sparse = TRUE)
+}
+```
+
 # Single-moderator metaregression models
 
 ## Model 4: Carbon chain length
 
-```{r, echo=FALSE}
+```{r}
+sum(is.na(dat$carbon_chain_length)) #checking the amount of NAs
+#[1] 65
 dat_ccl <- dat[complete.cases(dat[ , "carbon_chain_length"]),]
+sum(is.na(dat_ccl$carbon_chain_length))
+#[1] 0
+```
+
+```{r}
+ccl_model <- run_model(dat_ccl, ~scale(carbon_chain_length))
+ccl_model <- robust(ccl_model, dat_ccl$measurement_ID_P)
+save(ccl_model, file = here("Rdata", "ccl_model.RData"))
 ```
 
 ```{r}
@@ -217,6 +276,11 @@ bubble_plot(ccl_bubble,
 
 ## Model 5: Molecular weight
 
+```{r, eval=FALSE}
+mw_model <- run_model(dat, ~scale(molecular_weight))
+mw_model <- robust(mw_model, dat$measurement_ID_P)
+```
+
 ```{r}
 load(here("RData", "mw_model.RData"))
 summary(mw_model)
@@ -259,6 +323,11 @@ orchaRd::bubble_plot(mw_bubble,
 
 ## Model 6: Functional group
 
+```{r, eval=FALSE}
+fun_gro_model <- run_model(dat_fg, ~ functional_group - 1)
+fun_gro_model <- robust(fun_gro_model, dat_fg$measurement_ID_P)
+```
+
 ```{r}
 load(here("RData", "fun_gro_model.RData"))
 summary(fun_gro_model)
@@ -297,6 +366,12 @@ orchard_plot(fun_gro_model,
 ```
 
 ## Model 7: Clutch size
+
+```{r, eval=FALSE}
+sum(is.na(dat$clutch_size))
+#[1] 0
+clutch_size_model <- run_model(dat, ~ clutch_size)
+```
 
 ```{r}
 load(here("RData", "clutch_size_model.RData"))
@@ -343,6 +418,10 @@ sum(is.na(dat_egg_weight$egg_weight_mean))
 #[1] 0
 ```
 
+```{r, eval=FALSE}
+egg_weight_model <- run_model(dat_egg_weight, ~ egg_weight_mean)
+```
+
 ```{r}
 load(here("RData", "egg_weight_model.RData"))
 summary(egg_weight_model)
@@ -379,6 +458,12 @@ bubble_plot(egg_weight_model,
 ```
 
 ## Model 9: Body weight
+
+```{r, eval=FALSE}
+sum(is.na(dat$body_weight_mean))
+#[1] 0
+body_weight_model <- run_model(dat, ~ body_weight_mean)
+```
 
 ```{r}
 load(here("RData", "body_weight_model.RData"))
@@ -417,6 +502,12 @@ bubble_plot(body_weight_model,
 
 ## Model 10: Laying order
 
+```{r, eval=FALSE}
+sum(is.na(dat$laying_order))
+#[1] 315
+laying_order_model <- run_model(dat, ~scale(laying_order))
+```
+
 ```{r}
 load(here("RData", "laying_order_model.RData"))
 summary(laying_order_model)
@@ -451,19 +542,24 @@ bubble_plot(laying_order_model,
   xlab("Laying order")
 ```
 
-## Model 11: Adult type of tissue
+## Model 11: Sample type - adult
 
-```{r}
-load(here("RData", "sample_type_a_model.RData"))
-sample_type_a_model_rob <- robust(sample_type_a_model, dat$measurement_ID_P)
-summary(sample_type_a_model_rob)
-r2_ml(sample_type_a_model_rob, dat)
+```{r, eval=FALSE}
+sample_type_a_model <- run_model(dat, ~ sample_type_A - 1)
+
+sample_type_a_model <- robust(sample_type_a_model, dat$measurement_ID_P)
 ```
 
 ```{r}
-r2_sample_type_a <-  r2_ml(sample_type_a_model_rob, dat)
+load(here("RData", "sample_type_a_model.RData"))
+summary(sample_type_a_model)
+r2_ml(sample_type_a_model, dat)
+```
 
-orchard_plot(sample_type_a_model_rob,
+```{r}
+r2_sample_type_a <-  r2_ml(sample_type_a_model, dat)
+
+orchard_plot(sample_type_a_model,
              mod = "sample_type_A",
              group = "study_ID", 
              xlab = "lnRR",
@@ -491,19 +587,24 @@ orchard_plot(sample_type_a_model_rob,
        axis.text.x = element_text(size = 12))
 ```
 
-## Model 12: Progeny type of tissue (or egg part)
+## Model 12: Sample type - progeny
 
-```{r}
-load(here("RData", "sample_type_p_model.RData"))
-sample_type_p_model_rob <- robust(sample_type_p_model, dat$measurement_ID_P)
-summary(sample_type_p_model_rob)
-r2_ml(sample_type_p_model_rob, dat)
+```{r, eval=FALSE}
+sample_type_p_model <- run_model(dat, ~ sample_type_P - 1)
+
+sample_type_p_model <- robust(sample_type_p_model, dat$measurement_ID_P)
 ```
 
 ```{r}
-r2_sample_type_p <-  r2_ml(sample_type_p_model_rob, dat)
+load(here("RData", "sample_type_p_model.RData"))
+summary(sample_type_p_model)
+r2_ml(sample_type_p_model, dat)
+```
 
-orchard_plot(sample_type_p_model_rob,
+```{r}
+r2_sample_type_p <-  r2_ml(sample_type_p_model, dat)
+
+orchard_plot(sample_type_p_model,
              mod = "sample_type_P",
              group = "study_ID", 
              xlab = "lnRR",
@@ -548,17 +649,23 @@ dat_diet <- dat %>%
   ))
 ```
 
-```{r}
-load(here("RData", "diet_model.RData"))
-diet_model_rob <- robust(diet_model, dat_diet$measurement_ID_P)
-summary(diet_model_rob)
-r2_ml(diet_model_rob, dat_diet)
+```{r, eval=FALSE}
+diet_model <- run_model(dat_diet, ~ diet - 1)
+
+diet_model <- robust(diet_model, dat_diet$measurement_ID_P)
+summary(diet_model)
 ```
 
 ```{r}
-r2_diet <- r2_ml(diet_model_rob, dat_diet)
+load(here("RData", "diet_model.RData"))
+summary(diet_model)
+r2_ml(diet_model, dat_diet)
+```
 
-orchard_plot(diet_model_rob,
+```{r}
+r2_diet <- r2_ml(diet_model, dat_diet)
+
+orchard_plot(diet_model,
              mod = "diet",
              group = "study_ID",
              xlab = "lnRR",
@@ -586,11 +693,18 @@ orchard_plot(diet_model_rob,
        axis.text.x = element_text(size = 12))
 ```
 
-## Model 14: Life stage progeny (egg OR chick)
+## Model 14: Life stage progeny (i.e., egg OR chick)
+
+```{r, eval=FALSE}
+sum(is.na(dat$life_stage_P))
+#[1] 0
+life_stage_model <- run_model(dat, ~ life_stage_P - 1)
+
+life_stage_model <- robust(life_stage_model, dat$measurement_ID_P)
+```
 
 ```{r}
 load(here("RData", "life_stage_model.RData"))
-
 summary(life_stage_model)
 r2_ml(life_stage_model, dat)
    # R2_marginal R2_conditional 
@@ -616,7 +730,7 @@ fig_life_stage_p
 
 ## Model 15
 
-```{r, echo=FALSE, eval=FALSE}
+```{r, eval=FALSE}
 full_model0 <- rma.mv(yi = lnRR,
                       V = VCV_lnRR, 
                       mods = ~1 + 
@@ -648,7 +762,7 @@ r2_ml(full_model0, dat)
 
 ## Model 16: Small study effect bias
 
-```{r, echo=FALSE, eval=FALSE}
+```{r, eval=FALSE}
 MLMR_mod_ess.se <- rma.mv(yi = lnRR, 
                                V = VCV_lnRR, 
                                mods = ~ ess.se, # add adjusted based sampling error - tilde square root n as a moderator to test small study effect (see section "lnRR and variance calculations).
@@ -668,6 +782,17 @@ summary(MLMR_mod_ess.se)
 ```
 
 ## Model 17: Time-lag bias
+
+```{r, eval = FALSE}
+MLMR_mod_year.c <- metafor::rma.mv(lnRR,
+                            VCV_lnRR,
+                            mods = ~ scale(year_publication),
+                            random = list(~1|study_ID,
+                                          ~1|pfas_ID, 
+                                          ~1|es_ID
+                                          ),
+                            data = dat)
+```
 
 ```{r}
 load(here("RData", "MLMR_mod_year.c.RData"))
@@ -705,6 +830,50 @@ orchaRd::bubble_plot(pb_bubble,
 ## Model 18: Leave-one-out-analyses
 
 ```{r}
+dat <- dat %>%
+  mutate(leave_out = study_ID)
+
+dat$leave_out <- as.factor(dat$leave_out)
+
+
+LeaveOneOut_effectsize <- list()
+for (i in 1:length(levels(dat$leave_out))) {
+  temp_dat <- dat %>%
+    filter(leave_out != levels(dat$leave_out)[i])
+  
+  VCV_leaveout <- vcalc(vi = temp_dat$var_lnRR, cluster = temp_dat$measurement_ID_A, rho = 0.5)
+  
+  LeaveOneOut_effectsize[[i]] <-  rma.mv(yi = lnRR,
+                                         V = VCV_leaveout, 
+                                         random = list(~1|study_ID,
+                                                       ~1|pfas_ID,
+                                                       ~1|es_ID),
+                                         test = "t",
+                                         sparse = TRUE,
+                                         data = temp_dat[temp_dat$leave_out != levels(temp_dat$leave_out)[i], ])
+}
+
+# writing function for extracting est, ci.lb, and ci.ub from all models
+est.func <- function(model) {
+  df <- data.frame(est = model$b, lower = model$ci.lb, upper = model$ci.ub)
+  return(df)
+}
+
+# using dplyr to form data frame
+MA_oneout <- lapply(LeaveOneOut_effectsize,function(x) est.func(x)) %>%
+  bind_rows %>%
+  mutate(left_out = levels(dat$leave_out))
+
+
+# telling ggplot to stop reordering factors
+MA_oneout$left_out <- as.factor(MA_oneout$left_out)
+MA_oneout$left_out <- factor(MA_oneout$left_out, levels = MA_oneout$left_out)
+
+# saving the runs
+saveRDS(MA_oneout, here("Rdata", "MA_oneout.RDS"))
+```
+
+```{r}
 MA_oneout <- readRDS(here("Rdata", "MA_oneout.RDS"))
 
 # plotting
@@ -726,6 +895,18 @@ leaveoneout
 ```
 
 ## Model 19: Adult female concentrations and same nest data only
+
+```{r, eval=FALSE}
+dat2_sa_model <- rma.mv(yi = lnRR,
+             V = VCV_lnRR_dat2, 
+             random = list(~1|study_ID,
+                            ~1|pfas_ID,
+                            ~1|es_ID
+                           ),
+             test = "t",
+             data = dat2_sa)
+dat2_sa_model <- robust(dat2_sa_model, dat2_sa$measurement_ID_P)
+```
 
 ```{r}
 load(here("RData", "dat2_sa_model.RData"))
@@ -806,6 +987,31 @@ orchaRd::orchard_plot(ma_model2,
 ```
 
 ## Model 21: Dataset without SD values imputation
+
+```{r, eval=FALSE}
+data_sa <- escalc(measure = "ROM",
+                  m1i = mean_P,
+                  m2i = mean_A, 
+                  sd1i = sd_P, 
+                  sd2i = sd_A, 
+                  n1i = n_P,
+                  n2i = n_A, 
+                  data = dat %>% filter(sd_A > 0))
+
+VCV_sa <- impute_covariance_matrix(data_sa$vi,
+                                     cluster = data_sa$measurement_ID_A, 
+                                     r = 0.5)
+
+ma_model_sa <- rma.mv(yi = yi,
+             V = VCV_sa, 
+             random = list(~1|study_ID,
+                           #~1|pfas_ID,
+                           ~1|es_ID
+              ),
+             test = "t",
+             data = data_sa)
+ma_model_sa <- robust(ma_model_sa, data_sa$measurement_ID_P)
+```
 
 ```{r}
 load(here("RData", "ma_model_sa.RData"))
