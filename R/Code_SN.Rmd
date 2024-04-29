@@ -1,0 +1,2160 @@
+---
+title: "Code_clean"
+author: "Lorenzo Ricolfi"
+date: "2023-05-31"
+output: html_document
+---
+
+# Project info
+
+Title: **Maternal PFAS transfer in wild birds: a systematic review and meta-analysis**
+
+*Research questions*
+
+1.  What is the overall maternal PFAS transfer (i.e., the ratio between PFAS concentration in both eggs and hatchling and the adult female) in wild birds, and how variable is it?
+
+2.  Do physicochemical properties of PFAS compounds affect the maternal transfer efficiency in wild birds? Specifically, is the maternal transfer mediated by a compounds':
+
+-   carbon chain length?
+-   functional group?
+-   molecular weight?
+
+3.  Do biological factors of birds affect the maternal PFAS transfer efficiency? Specifically, is the maternal transfer mediated by:
+
+-   feeding ecology or trophic position?
+-   birds' body weight?
+-   average clutch size?
+-   average number of broods per year?
+-   egg mass?
+-   the type of adult bird's tissue analysed?
+-   the type of egg's part or chick's tissue analysed?
+-   the developmental stage of the offspring (i.e., chick vs egg)?
+
+*Objectives*
+
+1.  Quantify the overall meta-analytic mean of maternal transfer ratio (i.e., Coffspring/Cfemale) and its variation.
+
+2.  Identify and evaluate sources of heterogeneity related to PFAS properties:
+
+-   Assess whether different types of PFAS have different transfer rates.
+-   Estimate the variance explained for different carbon chain lengths, functional groups, and molecular masses of PFAS.
+
+3.  Identify and evaluate sources of heterogeneity related to biological samples:
+
+-   Assess whether the proportion of maternal transfer is statistically different between seabirds and non-seabirds.
+-   Estimate the variance explained for different feeding ecology, body mass, the average number of eggs in a clutch, the average number of broods per year, egg mass, type of adult bird's tissue analysed, type of egg's part analysed, and developmental stage of the progeny.
+
+*Purpose*
+
+This .Rmd document provides the code I used for data processing, data analysing, and visualizations.
+
+*Data model*
+
+A relational data model organizes extracted data from included studies into tables of rows and columns, and the relationships between the tables are defined using primary and foreign keys. This allows for efficient querying and data manipulation, and makes it easy to integrate data from multiple tables.
+
+The six data tables are listed as follow:
+
+-   **study_info:** data related to the study such as the year of publication and
+
+-   **species_info**
+
+-   **pfas_info**
+
+-   **cohort_info**
+
+-   **sample_info**
+
+-   **measurements_info**
+
+An extra data table (i.e., **measurements_info_sens_analysis**) contains data where values under limit of detection (or quantification) were extracted as the limit divided by 2 (instead of by the square root of two). This data table is used for sensitivity analysis.
+
+They are stored in [a repository on GitHub](https://github.com/ThisIsLorenzo/PFAS_MA_MaternalTransfer_WildBirds_Pilot/tree/main/Data)
+
+# Data loading & modelling
+
+Set up knitr options:
+
+```{r setup}
+knitr::opts_chunk$set(
+  message = FALSE, #turning off the display of messages
+  warning = FALSE,#turning off the display of warnings
+  tidy = TRUE, #turning on the "tidy" option (which affects the formatting of code chunks)
+  cache = TRUE, #turning on caching (so that code chunks are only executed if their dependencies have changed)
+  echo = TRUE #turning on the "echo" option (so that code is displayed in the output)
+)
+
+rm(list = ls()) #Effectively clears the environment of any data, functions, or variables that have been defined
+```
+
+Loading packages:
+
+```{r, results = 'hide'}
+# using the pacman package to load multiple packages at once
+pacman::p_load(tidyverse, #a collection of packages for data manipulation, visualization, and modeling, including packages like dplyr, ggplot2, and tidyr
+               readr, #a package for reading and writing tabular data, such as CSV files
+               ape, #a package for analyzing phylogenetics and evolutionary data
+               curl, #a package for transferring data over the internet using various protocols, such as HTTP and FTP
+               rotl, #a package for working with phylogenetic trees, including functions for manipulating and visualizing trees
+               RColorBrewer, #a package for generating color palettes for plotting
+               here, #a package for working with file paths, particularly when working with project-based workflows
+               dm, #a package for working with distance matrices
+               dplyr, #a package for data manipulation, which is already included in the tidyverse package
+               metafor, #a package for conducting meta-analyses
+               meta, #a package for conducting meta-analyses
+               forestplot, #a package for creating forest plots, which are commonly used to display the results of meta-analyses
+               orchaRd, #a package for working with ordination data
+               kableExtra, #a package for creating tables and formatting them in R Markdown documents
+               phytools, #a package for phylogenetic comparative biology
+               patchwork, #a package for combining multiple plots into a single figure
+               clubSandwich, #a package for variance estimation and hypothesis testing in clustered data
+               MuMIn #a package for model selection and multimodel inference
+               )
+```
+
+Loading data:
+
+```{r, results = 'hide'}
+st <- read_csv(here("Data", "study_info.csv")) #study-related data
+# dim(st)
+# [1] 13 16
+sp <- read_csv(here("Data", "species_info.csv")) #species-related data
+# dim(sp)
+# [1] 16 15
+pfas <- read_csv(here("Data", "pfas_info.csv")) #pfas-related data
+# dim(pfas)
+# [1] 26 12
+co <- read_csv(here("Data", "cohort_info.csv")) #cohort-related data
+# dim(co)
+# [1] 63 25
+sa <- read_csv(here("Data", "sample_info.csv")) #sample-related data
+# dim(sa)
+# [1] 70  5
+me <- read_csv(here("Data", "measurement_info.csv")) #statistics
+# dim(me)
+# [1] 505  25
+```
+
+Cleaning data:
+
+```{r, results = 'hide'}
+st <- st %>% 
+  select(-("Timestamp")) %>% #removing the timestamp column
+  select(-(ends_with("comment"))) #removing any column ending with comment
+# dim(st)
+#[1] 13 10
+sp <- sp %>% 
+  select(-("Timestamp")) %>%
+  select(-(ends_with("comment")))
+# dim(sp)
+# [1] 16  8
+pfas <- pfas %>% 
+  select(-("Timestamp")) %>% 
+  select(-(ends_with("comment")))
+pfas <- pfas %>% 
+  dplyr::mutate(functional_group = ifelse(functional_group == "Carboxylic acid", "Carboxylate / carboxylic acid", functional_group)) #checking if the value of the "functional_group" column is equal to "Carboxylic acid". If it is, then the new "functional_group" column is assigned the value "Carboxylate / carboxylic acid". If not, the original value of the "functional_group" column is used
+# dim(pfas)
+# [1] 26 12
+co <- co %>% 
+  select(-("Timestamp")) %>%
+  select(-(ends_with("comment")))
+# dim(co)
+# [1] 63 16
+sa <- sa %>% 
+  select(-("Timestamp")) %>% 
+  select(-(ends_with("comment")))
+# dim(sa)
+# [1] 70  3
+me <- me %>%
+  select(-("Timestamp")) %>% 
+  select(-(ends_with("comment")))
+# dim(me)
+# [1] 505  16
+
+co$laying_order[co$laying_order == "mixed"] <- NA #assigning NA if laying order is mixed
+co$laying_order <- as.numeric(co$laying_order) #turning laying order as numeric
+
+#removing characters from carbon chain length and molecular weight. Making them as numeric.
+pfas$carbon_chain_length[pfas$carbon_chain_length == "mixed"] <- NA
+pfas$carbon_chain_length <- as.numeric(pfas$carbon_chain_length)
+
+pfas$molecular_weight[pfas$molecular_weight == "mixed"] <- NA
+pfas$molecular_weight <- as.numeric(pfas$molecular_weight)
+```
+
+The following code creates a data model object called data_dm_no_keys using the dm() function, with the tables st, sp, pfas, co, sa, and me.
+
+```{r, results = 'hide'}
+data_dm_no_keys <- dm(st, sp, pfas, co, sa, me)
+data_dm_no_keys #printing the data_dm_no_keys object, which displays the structure and content of the data model
+data_dm_no_keys$st #accessing the st table from the data model using $ operator and printing it
+data_dm_no_keys[c("st", "co")] #accessing the columns "st" and "co" from the data model using indexing and printing the corresponding data
+```
+
+The following code adds primary keys to the data_dm_no_keys data model using the dm_add_pk() function. It specifies the table and the corresponding column(s) to be used as primary keys for each table. The resulting data model with only primary keys is stored in the data_dm_only_pks object and printed. Next, foreign keys are added to the data_dm_only_pks data model using the dm_add_fk() function. It specifies the table, columns, and the referenced table for each foreign key constraint. The resulting data model with both primary and foreign keys is stored in the data_dm_all_keys object and printed.
+
+```{r, results = 'hide'}
+data_dm_only_pks <- data_dm_no_keys %>% 
+  dm_add_pk(table = st, columns = study_ID) %>% 
+  dm_add_pk(sp, species_ID) %>% 
+  dm_add_pk(pfas, pfas_ID) %>% 
+  dm_add_pk(co, cohort_ID) %>% 
+  dm_add_pk(sa, sample_ID) %>% 
+  dm_add_pk(me, measurement_ID)
+data_dm_only_pks
+
+data_dm_all_keys <- 
+  data_dm_only_pks %>% 
+  dm_add_fk(table = co, columns = study_ID, ref_table = st) %>% 
+  dm_add_fk(table = co, columns = species_ID, ref_table = sp) %>%
+  dm_add_fk(table = sa, columns = cohort_ID, ref_table = co) %>%
+  dm_add_fk(table = me, columns = sample_ID, ref_table = sa) %>%
+  dm_add_fk(table = me, columns = pfas_ID, ref_table = pfas)
+data_dm_all_keys
+```
+
+Data model visualization and integrity check:
+
+```{r}
+data_dm_all_keys %>% 
+  dm_draw() #visual representation of the tables and their relationships
+
+data_dm_all_keys %>% 
+  dm_examine_constraints()
+# ℹ All constraints satisfied.
+```
+
+The following chunk creates a new table (i.e., 'me1') that merges 'sa', 'co', and 'me' tables. 'me' includes only the variables we need to calculate effect sizes (i.e., min, max, median, etc. are removed)
+
+```{r moving columns among dm objects}
+me1 <- 
+  data_dm_all_keys %>% 
+  dm_select(me, measurement_ID | group_info | sample_ID | pfas_ID | mean_arithmetic | SD | n | limit_type | LOD | LOQ) %>% 
+  dm_select(sa, sample_ID : sample_type) %>% 
+  dm_select(co, cohort_ID : data_pooled) %>% 
+  dm_select(pfas, pfas_ID) %>% 
+  dm_select(sp, species_ID) %>% 
+  dm_select(st, study_ID) %>% 
+  dm_flatten_to_tbl(.start = me, .recursive = TRUE, .join = left_join)
+
+colnames(me1)
+```
+
+The following chunk creates a function to replace undetected concentrations by the limit (LOD or LOQ) divided by two, instead of the square root of two.
+
+```{r, eval=FALSE}
+replace_mean_arithmetic <- function(data) {
+  # Identify rows where 'LOD' or 'LOQ' is present in 'limit_type'
+  replace_indices <- data$limit_type %in% c('LOD', 'LOQ')
+
+  # Replace 'mean_arithmetic' values based on 'LOD' or 'LOQ' values
+  data$mean_arithmetic[replace_indices] <- ifelse(data$limit_type[replace_indices] == 'LOD',
+                                                0.5 * me1$LOD[replace_indices],
+                                                0.5 * me1$LOQ[replace_indices])
+
+  return(data)
+}
+
+# Call the function to replace values
+me1 <- replace_mean_arithmetic(me1)
+```
+
+The follwoing chunck create a new column called "es_ID" which matches all the pairs of measurement for effect size calculation.
+Study ID, PFAS ID, specie ID, and sampling location must be the same. The group (i.e., group_info) must be different, so that we pair adult-progeny in all possible combinations (different tissues in adults, eggs, chicks).
+
+```{r}
+list_dat <- 
+  me1 %>% 
+  dplyr::group_split(study_ID,
+                  pfas_ID , 
+                  species_ID,
+                  sampling_location) #grouping me1 using the variables we want to be the same between adult and progeny. Splitting the data frame me1 into subsets based on the variables study_ID, pfas_ID, species_ID, and sampling_location.
+
+wide_table <-
+  function(dat)
+    { #defining wide_table function to convert a grouped data frame into a wide format table
+
+dat <-
+  as.data.frame(dat) #converting to a data frame
+  
+adult <-
+  dat[dat$group_info == "adult", 1] 
+progeny <-
+  dat[dat$group_info == "progeny", 1] #Separating the subset into two groups based on the value of the group_info variable, creating adult and progeny variables.
+
+ids <-
+  expand.grid(adult_id = adult,
+              progeny_id = progeny) #creating a new variable called "ids" which is a grid of all possible combinations of "adult_id" and "progeny_id"
+
+adult_id <- ids[[1]] #assigning the first column of the "ids" variable respectively
+progeny_id <- ids[[2]]
+
+pos_adult <- match(adult_id, dat$measurement_ID)
+adult_dat <- dat[pos_adult, ] #using the match() function to find the positions of "adult_id" and "progeny_id" in the "measurement_ID" column of the data, and creates new variables "adult_dat" and "progeny_dat" respectively, which are subsets of the data at those positions
+
+pos_progeny <- match(progeny_id, dat$measurement_ID)
+progeny_dat <- dat[pos_progeny, ]
+
+ndat <- data.frame(
+           measurement_ID_A = adult_dat[["measurement_ID"]],
+           measurement_ID_P = progeny_dat[[ "measurement_ID"]],
+           mean_arithmetic_A = adult_dat[["mean_arithmetic"]],
+           mean_arithmetic_P =  progeny_dat[[ "mean_arithmetic"]],
+           SD_A = adult_dat[["SD"]],
+           SD_P = progeny_dat[["SD"]],
+           n_A = adult_dat[["n"]],
+           n_P = progeny_dat[["n"]],
+           life_stage_A = adult_dat[["life_stage"]],
+           life_stage_P = progeny_dat[["life_stage"]],
+           study_ID_A = adult_dat[["study_ID"]],
+           study_ID_P = progeny_dat[["study_ID"]],
+           species_ID_A = adult_dat[["species_ID"]],
+           species_ID_P = progeny_dat[["species_ID"]],
+           sample_type_A = adult_dat[["sample_type"]],
+           sample_type_P = progeny_dat[["sample_type"]],
+           sampling_location_A = adult_dat[["sampling_location"]],
+           sampling_location_P = progeny_dat[["sampling_location"]],
+           pfas_ID_A = adult_dat[["pfas_ID"]],
+           pfas_ID_P = progeny_dat[["pfas_ID"]],
+           limit_type_A = adult_dat[["limit_type"]],
+           limit_type_P = progeny_dat[["limit_type"]],
+           LOD_A = adult_dat[["LOD"]],
+           LOD_P = progeny_dat[["LOD"]],
+           LOQ_A = adult_dat[["LOQ"]],
+           LOQ_P = progeny_dat[["LOQ"]],
+           sampling_year_A = adult_dat[["sampling_year"]],
+           sampling_year_P = progeny_dat[["sampling_year"]],
+           sampling_month_A = adult_dat[["sampling_month"]],
+           sampling_month_P = progeny_dat[["sampling_month"]],
+           developmental_stage_A = adult_dat[["developmental_stage"]],
+           developmental_stage_P = progeny_dat[["developmental_stage"]],
+           breeding_stage = adult_dat[["breeding_stage"]],
+           laying_order = progeny_dat[["laying_order"]],
+           nest = adult_dat[["nest"]],
+           body_weight_mean = adult_dat[["body_weight_mean"]],
+           body_weight_sd = adult_dat[["body_weight_sd"]],
+           egg_weight_mean = progeny_dat[["egg_weight_mean"]],
+           egg_weight_sd = progeny_dat[["egg_weight_sd"]],
+           data_pooled = adult_dat[["data_pooled"]]
+             ) #creating a new data table "ndat" that contains columns for all of the relevant variables from both "adult_dat" and "progeny_dat", with columns for adult data having the suffix "_A" and columns for progeny data having the suffix "_P"
+ndat
+
+}
+
+
+dat <- list_dat[[3]] #selecting the third subset of the grouped data (list_dat[[3]]) and passing it to the wide_table() function, saving the result to a new variable "res"
+
+res <- wide_table(list_dat[[3]])
+res
+
+ntable <- map_dfr(list_dat, wide_table) #applying wide_table data to every item in this list
+```
+
+Creating an effect sizes column and tiding data:
+
+```{r}
+ntable <- dplyr::mutate(ntable, 
+                        es_ID = as.vector(001 : 412)) #creating esID column
+ntable$es_ID <-  sub("(.{1})", "es_\\1", ntable$es_ID) #creating es_IDs
+
+#the following columns are created in order to link the new ntable to the dm object
+ntable <- dplyr::mutate(ntable, 
+                        study_ID =  ntable$study_ID_A) #adding study_ID column
+ntable <- dplyr::mutate(ntable,
+                        species_ID =  ntable$species_ID_A) #adding species_ID column
+ntable <- dplyr::mutate(ntable,
+                        pfas_ID =  ntable$pfas_ID_A) #adding pfas_ID column
+
+ntable <- dplyr::select(ntable, -c('study_ID_A', 
+                                   'study_ID_P', 
+                                   'species_ID_A', 
+                                   'species_ID_P', 
+                                   'pfas_ID_A',
+                                   'pfas_ID_P')) #removing redundant columns
+```
+
+Remove effect sizes where both adult and progeny concentrations were under the limit of detection or quantification. This was an assumption made in the pre-registration. This is necessary to have meaningful response ratios.
+
+```{r}
+ntable <- 
+  ntable %>% 
+  dplyr::filter(is.na(limit_type_A) == "TRUE" |
+               is.na(limit_type_P) == "TRUE")
+```
+
+Remove effect size measurements with NA in the mean concentration in the adult OR progeny. This is necessary for successful analysis because means cannot be "NA" in effect size calculations.
+
+```{r}
+ntable <- 
+  ntable %>% 
+  dplyr::filter(is.na(mean_arithmetic_A) == "FALSE" &
+                  is.na(mean_arithmetic_P) == "FALSE")
+```
+
+Rebuilt the dm object with the new 'ntable'.
+
+```{r adding the ntable to the dm object, include=FALSE}
+nt <- ntable
+data_dm_no_keys <- dm(st, sp, pfas, nt)
+
+data_dm_only_pks <- data_dm_no_keys %>%
+  dm_add_pk(table = st, columns = study_ID) %>%
+  dm_add_pk(sp, species_ID) %>%
+  dm_add_pk(pfas, pfas_ID) %>%
+  dm_add_pk(nt, es_ID)
+
+data_dm_all_keys <-
+  data_dm_only_pks %>%
+  dm_add_fk(table = nt, columns = study_ID, ref_table = st) %>% 
+  dm_add_fk(table = nt, columns = species_ID, ref_table = sp) %>% 
+  dm_add_fk(table = nt, columns = pfas_ID, ref_table = pfas)
+
+#Merging the dm tables in a wide table named 'nt'.
+
+nt <-
+  data_dm_all_keys %>%
+  dm_flatten_to_tbl(.start = nt, .recursive = TRUE)
+```
+
+# lnRR and variance function
+```{r}
+#Changing columns names to make them shorter
+colnames(nt)[3] <- "mean_A"
+colnames(nt)[4] <- "mean_P"
+colnames(nt)[5] <- "sd_A"
+colnames(nt)[6] <- "sd_P"
+
+# Custom function to calculate the lnRR 
+lnRR_func <- function(mean_A,
+                      n_A,
+                      mean_P,
+                      n_P,
+                      aCV2a,
+                      aCV2p)
+  {
+  lnRR <- log(mean_P/mean_A) + 0.5 * ((aCV2p/n_P) - (aCV2a/n_A))	
+  
+  lnRR
+  }
+# Custom function to calculate the lnRR's sampling variance from independent designs (rTC = 0)
+var_lnRR_ind <- function(mean_A,
+                         n_A,
+                         mean_P, 
+                         n_P, 
+                         aCV2a, 
+                         aCV2p)
+  {
+  
+  var_lnRR <- (aCV2a/n_A) + (aCV2p/n_P) 
+  
+  var_lnRR
+  }
+# mean_A: Concentration of PFAS in the adult sample
+# n_A: Sample size of the adult sample
+# mean_P: Concentration of PFAS of the progeny sample
+# n_P: Sample size of the progeny sample 
+# aCV2a: Mean coefficient of variation of the adult samples
+# aCV2p: Mean coefficient of variation of the progeny samples
+```
+
+
+# Phylogenetic information
+
+Import phylogenetic information and calculate phylogenetic variance-covariance matrix
+
+NOTE: The phylogenetic tree was generated in the `tree_MA_MT_PFAS.Rmd` document
+
+```{r}
+tree <- read.tree(here("R", "phylogenetic_tree.tre")) # Import phylogenetic tree (see tree_MA_MT_PFAS.Rmd for more details) 
+tree <- compute.brlen(tree) # Generate branch lengths 
+cor_tree <- vcv(tree,corr = T) # Generate phylogenetic variance-covariance matrix 
+
+nt2 <- nt
+
+nt2$Phylogeny <- as.factor(str_replace(nt2$species_scientific_name, " ", "_")) # Add the `phylogeny` column to the data frame
+colnames(cor_tree) %in% nt2$Phylogeny # Check correspondence between tip names and data frame
+
+# Rename species names that do not match
+levels(nt2$Phylogeny)[levels(nt2$Phylogeny) == "Larus_audouinii"] <- "Ichthyaetus_audouinii"
+levels(nt2$Phylogeny)[levels(nt2$Phylogeny) == "Phalacrocorax_aristotelis"] <- "Gulosus_aristotelis"
+levels(nt2$Phylogeny)[levels(nt2$Phylogeny) == "Diomedea_immutabilis"] <- "Phoebastria_immutabilis"
+
+# checking all species are in the data
+match(unique(nt2$Phylogeny), colnames(cor_tree))
+match(nt2$Phylogeny, colnames(cor_tree))
+```
+
+```{r, eval=FALSE, fig.height=10, fig.width = 8}
+# plotting tree
+plot(tree)
+```
+
+# Effect size calculations
+
+We measured maternal PFAS transfer using the logarithm of response ratio, lnRR, and its sampling variance, v(lnRR), as our effect size. For more details, refer to 'Effect Size Calculations' paragraph in 'Materials and methods' of main article.
+The following chunk defines a function cv_avg to calculate the between-study coefficient of variation for grouped data. It applies this function to calculate the average between-study CV for mean and standard deviation values separately and updates the nt2 data frame with the calculated columns.
+
+```{r}
+cv_avg <- function(x, #mean values
+                   sd, #standard deviation values
+                   n, #sample size values
+                   group, #variable to group the data by
+                   data, #data table to use
+                   label = NULL, #label the new columns in the data table
+                   sub_b = TRUE, #whether or not to keep only the columns with "b_" in their names
+                   cv2=FALSE) #whether or not to calculate the squared coefficient of variation
+  {
+
+# Check if the name is specified or not. If not, then assign it the name of the mean, x, variable input in the function. https://stackoverflow.com/questions/60644445/converting-tidyeval-arguments-to-string
+  
+if(is.null(label)){
+  label <- purrr::map_chr(enquos(x), rlang::as_label)
+} #checking if the "label" variable is null, and if so, creates a new variable "label" which is a list of the labels of the variables passed as arguments using the purrr and rlang packages
+  
+weighted_CV <- function(sd, x, n, cv2=FALSE){
+  if(cv2){
+    weighted.mean(na_if((sd / x)^2, Inf), n, na.rm = TRUE)
+  }else{
+    weighted.mean(na_if((sd / x), Inf), n, na.rm = TRUE)^2
+  }
+} #nested function called "weighted_CV" that calculates the weighted CV based on the values of sd, x, and n, and whether cv2 is true or false
+
+# Calculate between study CV. Take weighted mean CV within study, and then take a weighted mean across studies of the within study CV. Weighted based on sample size and pooled sample size.
+  b_grp_cv_data <- nt %>%
+    dplyr::group_by({{group}}) %>% #grouping by group variable
+    dplyr::mutate(w_CV2 = weighted_CV({{sd}}, 
+                                         {{x}}, 
+                                         {{n}},
+                                         cv2=cv2),
+                     n_mean = mean({{n}}, na.rm = TRUE)) %>% #calculating the weighted CV2 using the nested function and calculating the mean of the sample size variable
+    dplyr::ungroup(.) %>% #ungrouping
+    dplyr::mutate(b_CV2 = weighted.mean(w_CV2,
+                                        n_mean,
+                                        na.rm = TRUE), .keep = "used") # calculating the between-study CV2 by taking a weighted mean of the within-study CV2
+
+# Make sure that label of the calculated columns is distinct from any other columns
+  names(b_grp_cv_data) <- paste0(names(b_grp_cv_data), "_", label) #renaming the columns by appending "_label" to them
+
+# Append these calculated columns back to the original data and return the full dataset.
+  if(sub_b){
+    b_grp_cv_data <- b_grp_cv_data %>% 
+      dplyr::select(grep("b_", names(b_grp_cv_data)))
+    dat_new <- cbind(data, b_grp_cv_data)
+  } else {
+    dat_new <- cbind(data, b_grp_cv_data)
+  }
+
+  return(data.frame(dat_new))
+} #keeping only the columns with "b_" in their names, or keeping all columns, and binding the calculated columns back to the original data and returning the full dataset
+  
+# Calculate the average between study CV, which will replace missing values
+nt2 <- cv_avg(x = mean_A,
+             sd = sd_A,
+             n = n_A,
+             group = study_ID,
+             label = "1",
+             data = nt2) #using the cv_avg function to calculate the average between-study CV of the mean and standard deviation values of adult and progeny measurements by passing the appropriate variables and data table (nt2) as arguments, and saves the results to the same data table (nt2)
+
+nt2 <- cv_avg(x = mean_P,
+             sd = sd_P,
+             n = n_P,
+             group = study_ID,
+             label = "2",
+             data = nt2)
+```
+
+
+```{r}
+lnRR <- lnRR_func(mean_A = nt2$mean_A,
+                  n_A = nt2$n_A,
+                  mean_P = nt2$mean_P,
+                  n_P = nt2$n_P,
+                  aCV2a = nt2$b_CV2_1,
+                  aCV2p = nt2$b_CV2_2)
+
+var_lnRR <- var_lnRR_ind(mean_A = nt2$mean_A,
+                         n_A = nt2$n_A,
+                         mean_P = nt2$mean_P,
+                         n_P = nt2$n_P,
+                         aCV2a = nt2$b_CV2_1,
+                         aCV2p = nt2$b_CV2_2) 
+```
+
+# Model running function
+
+The following code defines a function 'run_model' 
+```{r}
+run_model <- function(data, formula){
+  data <- as.data.frame(data) # convert data set into a data frame to calculate VCV matrix 
+  VCV <- impute_covariance_matrix(data$var_lnRR,
+                                     cluster = data$measurement_ID_A,
+                                     r = 0.5) # create VCV matrix for the specified data
+  rma.mv(lnRR,
+         var_lnRR, # run the model, as described earlier
+         mods = formula,
+         random = list(~1|study_ID,
+                       ~1|pfas_ID,
+                       ~1|es_ID),
+         test = "t",
+         data = data,
+         sparse = TRUE)
+}
+```
+
+#Effective sample size
+
+These calculations will be used later on in the publication bias analyses. The harmonic mean is used instead of the simple average of the two sample sizes because it gives more weight to the smaller sample size, which can help to reduce the potential for bias in the meta-analysis.
+
+```{r}
+dat <- nt2 %>% 
+  dplyr::mutate(N_tilde = (n_A*n_P)/(n_A + n_P)) # getting effective sample size calculating the harmonic mean of the two sample sizes. 
+
+dat$ess.se <- sqrt(dat$N_tilde) # calculate adapted sampling error based on effective size - tilde square root n
+
+dat <- cbind(dat, lnRR, var_lnRR) # Merge effect sizes with the data frame
+```
+
+Saving the dat file so we can use it to run models in the Model Outputs associated file.
+
+```{r}
+write.csv(dat, here("RData", "dat.csv"))
+```
+
+# Variance-covariance matrix
+
+Now, we need to account for correlated errors because some effect sizes share the same control(adult). The multilevel model we will propose (Choosing a meta-analytical model) only deals with cases of non-independence among effect sizes. For non-independence among sampling variances (νi), for example, due to shared control statistics, we can construct a variance-covariance matrix to explicitly capture the non-zero covariance that arises from correlation between sampling errors (νi) within the same primary studies.
+
+For this purpose, I calculate the variance-covariance from the log response ratio variance. Variance-covariance is a measure of how two random variables are related. The variance-covariance matrix is a square matrix that shows the variances and covariances of a set of random variables. The diagonal elements of the matrix show the variances of the individual random variables, while the off-diagonal elements show the covariances between pairs of variables.
+
+```{r}
+
+VCV_lnRR <- impute_covariance_matrix(dat$var_lnRR,
+                                     cluster = dat$measurement_ID_A, 
+                                     r = 0.5)
+```
+
+#Summary
+
+##Graphics
+
+Plotting effect size measurements distribution:
+
+```{r, fig.height=8, fig.width=15}
+# mean
+ggplot(dat, aes(x=lnRR))+ 
+  geom_histogram(fill = "salmon", 
+                 col = "black",
+                 binwidth = 0.2) +
+  theme_classic()
+# variance
+ggplot(dat, aes(x=var_lnRR))+
+  geom_histogram(fill = "salmon", 
+                 col = "black",
+                 binwidth = 0.05) +
+  theme_classic()
+# log variance
+ggplot(dat, aes(x=var_lnRR))+ 
+  geom_histogram(fill = "salmon", 
+                 col = "black",
+                 binwidth = 0.05) +
+  scale_x_log10() +
+  theme_classic()
+```
+
+## Method limit of detection and quantification
+
+```{r}
+a <- hist(dat$LOD_A, main = "Distribution of LOD values (adults)", xlab = "LOD Values", ylab = "Frequency")
+b <- hist(dat$LOD_P, main = "Distribution of LOD values (progeny)", xlab = "LOD Values", ylab = "Frequency")
+c <- hist(dat$LOQ_A, main = "Distribution of LOQ values (adults)", xlab = "LOD Values", ylab = "Frequency")
+d <- hist(dat$LOQ_P, main = "Distribution of LOQ values (progeny)", xlab = "LOD Values", ylab = "Frequency")
+
+```
+
+
+##Figure 1a - Table and plot of sample sizes
+
+The following chunk creates a table of effect sizes and variables.
+
+```{r}
+table_sample_sizes <- dat %>% 
+  dplyr::summarise(#'Studies' = n_distinct(study_ID),
+                   #'Bird species' = n_distinct(Phylogeny),
+                   #'PFAS types' = n_distinct(pfas_ID),
+                   #'Sample types - adult' = n_distinct(sample_type_A),
+                   #'Sample types - progeny' = n_distinct(sample_type_P),
+                   'Breeding stage' = n_distinct(breeding_stage),
+                   #'Laying order' = n_distinct(laying_order),
+                   'Same nest' = n_distinct(es_ID[nest == "Yes"]),
+                   'Total' = n_distinct(es_ID),
+                   'Eggs' = n_distinct(es_ID[life_stage_P == "egg"]),
+                   #'Chicks' = n_distinct(es_ID[life_stage_P == "chick"]),
+                   'Non-pooled data' = n_distinct(es_ID[data_pooled == "No"])
+                   )
+
+table_sample_sizes <- t(table_sample_sizes)
+
+colnames(table_sample_sizes) <- "n (sample size)"
+
+kable(table_sample_sizes) %>% 
+  kable_styling("striped", position="left")
+
+# Save the table as an Excel file
+# write.table(table_sample_sizes, file = here("RData", "table_sample_sizes.csv"), sep = ",", row.names = TRUE, col.names = TRUE)
+
+# Convert the table to a plot
+table_sample_sizes_df <- as.data.frame(table_sample_sizes)
+
+table_sample_sizes_df$variable <- rownames(table_sample_sizes_df)
+
+table_sample_sizes_df <- table_sample_sizes_df %>% 
+  dplyr::arrange(variable) %>%
+  dplyr::filter(#variable != "Same nest" &
+                  #variable != "Laying order" &
+                  variable != "Breeding stage") %>% 
+  mutate(variable = str_replace(variable, "pfas type", "pfas types")) %>% 
+  mutate(variable = reorder(variable, `n (sample size)`))
+  
+
+
+plot_sample_sizes <- ggplot(table_sample_sizes_df, aes(x = variable,
+                                  y =`n (sample size)`)) +
+  geom_col(aes(fill = ""), width = 0.5) +
+  geom_text(aes(label = `n (sample size)`),
+            position = position_stack(vjust = 0.5),
+            size = 3.5) +
+  coord_flip() +
+  theme_light() +
+  scale_x_discrete(name = "") +
+  scale_y_continuous(name = "Number of effect sizes",
+                     breaks = seq(0, 400, by = 50),
+                     expand = c(0,1)) +
+  scale_fill_manual(values = c("#CCCCCC")) +
+  theme(legend.position = "none",
+        axis.title.x = element_text(size = 11),
+        axis.title.y = element_text(size = 11),
+        axis.text = element_text(size = 10, color = "black"),
+        panel.grid.major = element_line(color = "grey", 
+                                       linewidth  = 0.2, 
+                                       linetype = "dashed"),
+       panel.grid.minor = element_line(color = "grey", 
+                                      linewidth  = 0.2, 
+                                      linetype = "dotted"))
+plot_sample_sizes
+
+ggsave(here("figs", "fig1_a.png"),
+       width = 6,
+       height = 3)
+
+```
+
+# Intercept meta-analytic model
+
+Determine the random effect structure
+
+The random effects model is used to account for between-study heterogeneity, which is the variability in effect sizes among the studies being analyzed. When determining the random effect structure, we are trying to identify the sources of this heterogeneity and to quantify the degree to which it is present in the data.
+
+```{r, eval=FALSE}
+ma_all_random_effects <- rma.mv(yi = lnRR,
+                                V = VCV_lnRR, # Add `VCV_lnRR` to account for correlated errors
+             random = list(~1|study_ID, # Between-study effect
+                           ~1|Phylogeny, # Phylogenetic correlation between species
+                           ~1|species_ID, # Between species effect
+                           ~1|pfas_ID, # Between type of PFAS effect
+                           ~1|es_ID # Within-study effect
+              ),
+             R = list(Phylogeny = cor_tree),
+             test = "t",
+             data = dat)
+ma_all_random_effects <- robust(ma_all_random_effects, dat$measurement_ID_P)
+save(ma_all_random_effects, file = here("Rdata", "ma_all_random_effects.RData"))
+```
+
+```{r}
+load(here("RData", "ma_all_random_effects.RData"))
+summary(ma_all_random_effects)
+
+orchard_plot(ma_all_random_effects,
+             group = "study_ID", 
+             xlab = "lnRR")
+```
+
+From previous graph we can see that overall estimate from a random-effects meta-analysis of 371 effect sizes is centered on zero, with a 95% CI that spans the line of no-effect.
+
+```{r}
+summary(ma_all_random_effects)
+i2_ml(ma_all_random_effects)
+```
+
+*Phylogeny* does not explain for any variance. (sigma squared = 0.0000) *Species_ID* does not explain for any variance. (sigma squared = 0.0000)
+
+Thus, we remove them from the model.
+
+The effects of the other grouping variables are assumed to be random and are accounted for in the analysis. This allows the model to account for any differences between the groups and to provide more accurate estimates of the relationships between the variables.
+
+```{r, eval=FALSE}
+ma_model <- rma.mv(yi = lnRR,
+             V = VCV_lnRR, 
+             random = list(~1|study_ID,
+                           ~1|pfas_ID,
+                           ~1|es_ID
+              ),
+             test = "t",
+             data = dat)
+ma_model <- robust(ma_model, dat$measurement_ID_P) #The robust() function computes robust standard errors that account for non-normality and/or heteroscedasticity in the residuals.
+save(ma_model, file = here("Rdata", "ma_model.RData"))
+```
+
+The following chunck runs the same model but when undetected values are replaced by the limit of detection/quantification by two. This model was run running the chunk at lines 250-266 first (please see chunk at lines 250-266).
+```{r, eval=FALSE}
+ma_model2 <- rma.mv(yi = lnRR,
+             V = VCV_lnRR, 
+             random = list(~1|study_ID,
+                           ~1|pfas_ID,
+                           ~1|es_ID
+              ),
+             test = "t",
+             data = dat)
+
+ma_model2 <- robust(ma_model2, dat$measurement_ID_P) #The robust() function computes robust standard errors that account for non-normality and/or heteroscedasticity in the residuals.
+
+save(ma_model2, file = here("Rdata", "ma_model2.RData"))
+```
+
+```{r}
+load(here("RData", "ma_model.RData"))
+
+I2 <- orchaRd::i2_ml(ma_model)
+i2_ml(ma_model)
+  #  I2_Total I2_study_ID  I2_pfas_ID    I2_es_ID
+  # 99.001034    4.030746    2.329994   92.640294
+
+ma_model_bubble <- orchaRd::orchard_plot(ma_model,
+             mod = "1",
+             group = "study_ID", 
+             xlab = "lnRR",
+             alpha = 0.6,
+             trunk.size = 3,
+             branch.size = 1.5,
+             twig.size = 1,
+             k.pos = "right",
+             colour = TRUE,
+             fill = FALSE) +  
+  annotate(geom = "text",
+           x = 1.2,
+           y = 6.2, 
+           label = paste0("italic(I)^{2} == ", round(I2[1],4)),
+           color ="black",
+           parse = TRUE, 
+           size = 3.5) +
+           #scale_colour_manual(values = "darkorange")+ # change colours
+           #scale_fill_manual(values="darkorange")+ 
+           scale_size_continuous(range = c(1, 7)) + # change point scaling
+  ggtitle("a)") +
+  theme(panel.border = element_rect(colour = "black", 
+                                             fill=NA,
+                                             size=1.3), # border around the plot
+                 text = element_text(size = 9), # change font sizes
+                 legend.title = element_text(size = 8),
+                 legend.text = element_text(size = 7),
+        axis.text.y = element_blank()) +
+  xlab("Intercept")
+
+
+ma_model_bubble
+#Save the plot
+# ggsave(here("figs","fig2_a.png"),
+#        width = 7,
+#        height = 5)
+
+summary(ma_model)
+class(ma_model)
+# [1] "robust.rma" "rma"        "rma.mv"  
+```
+
+Making the same plot but coloring individual effect sizes according to the Species_ID rather than Study_ID.
+```{r}
+ma_model_bubble2 <- orchaRd::orchard_plot(ma_model,
+             mod = "1",
+             group = "species_ID", 
+             xlab = "lnRR",
+             alpha = 0.6,
+             trunk.size = 3,
+             branch.size = 1.5,
+             twig.size = 1,
+             k.pos = "right",
+             colour = TRUE,
+             fill = FALSE) +  
+  annotate(geom = "text",
+           x = 1.2,
+           y = 6.2, 
+           label = paste0("italic(I)^{2} == ", round(I2[1],4)),
+           color ="black",
+           parse = TRUE, 
+           size = 3.5) +
+           #scale_colour_manual(values = "darkorange")+ # change colours
+           #scale_fill_manual(values="darkorange")+ 
+           scale_size_continuous(range = c(1, 7)) + # change point scaling
+  ggtitle("b)") +
+  theme(panel.border = element_rect(colour = "black", 
+                                             fill=NA,
+                                             size=1.3), # border around the plot
+                 text = element_text(size = 9), # change font sizes
+                 legend.title = element_text(size = 8),
+                 legend.text = element_text(size = 7),
+        axis.text.y = element_blank()) +
+  xlab("Intercept")
+
+ma_model_bubble2 
+
+# ggsave(here("figs","fig2_b.png"),
+#        width = 7,
+#        height = 5)
+```
+
+```{r}
+ma_model_bubble/ma_model_bubble2
+ggsave(here("figs","fig2.jpg"),
+       width = 6,
+       height = 5,
+       dpi = 300)
+```
+
+
+## No albumen
+
+```{r}
+#calculate the variance-covariance in a data set without albumen.
+dat_no_albumen <-  dat %>% 
+  dplyr::filter(sample_type_P != "albumen")
+
+VCV_lnRR_no_albumen <- impute_covariance_matrix(dat_no_albumen$var_lnRR,
+                                     cluster = dat_no_albumen$measurement_ID_A, 
+                                     r = 0.5)
+```
+
+```{r, eval=FALSE}
+ma_model_no_albumen <- rma.mv(yi = lnRR,
+             V = VCV_lnRR_no_albumen, 
+             random = list(~1|study_ID,
+                           ~1|pfas_ID,
+                           ~1|es_ID
+              ),
+             test = "t",
+             data = dat_no_albumen)
+
+ma_model_no_albumen <- robust(ma_model_no_albumen, dat_no_albumen$measurement_ID_P)
+
+save(ma_model_no_albumen, file = here("Rdata", "ma_model_no_albumen.RData"))
+```
+
+
+```{r}
+load(here("RData", "ma_model_no_albumen.RData"))
+
+I2_no_albumen <- orchaRd::i2_ml(ma_model_no_albumen)
+i2_ml(ma_model_no_albumen)
+  #  I2_Total I2_study_ID  I2_pfas_ID    I2_es_ID
+  # 97.82266    43.85919    8.16957   45.79390
+
+summary(ma_model_no_albumen)
+
+orchaRd::orchard_plot(ma_model_no_albumen,
+             mod = "1",
+             group = "study_ID", 
+             xlab = "lnRR",
+             alpha = 0.6,
+             trunk.size = 3,
+             branch.size = 1.5,
+             twig.size = 1,
+             k.pos = "right",
+             colour = TRUE,
+             fill = FALSE) +  
+  annotate(geom = "text",
+           x = 1.2,
+           y = 6.2, 
+           label = paste0("italic(I)^{2} == ", round(I2_no_albumen[1],4)),
+           color ="black",
+           parse = TRUE, 
+           size = 3.5) +
+           #scale_colour_manual(values = "darkorange")+ # change colours
+           #scale_fill_manual(values="darkorange")+ 
+           scale_size_continuous(range = c(1, 7)) + # change point scaling
+           theme(panel.border = element_rect(colour = "black", 
+                                             fill=NA,
+                                             size=1.3), # border around the plot
+                 text = element_text(size = 18), # change font sizes
+                 legend.title = element_text(size = 15),
+                 legend.text = element_text(size = 13)) +
+  xlab("Intercept")
+
+# ggsave(here("figs/Suppl_figs","Sfig6.png"),
+#        width = 6,
+#        height = 4)
+```
+
+#Single-moderator metaregression models
+
+Note: All continuous variables were z-transformed.
+Note: more info on R2 (R-squared) for mixed (mulitlevel) models at the following
+references: Nakagawa, S, and Schielzeth, H. 2013. A general and simple method for obtaining R2 from generalized linear mixed‐effects models. Methods in Ecology and Evolution 4(2): 133-142.
+
+### PFAS carbon chain length
+
+```{r}
+sum(is.na(dat$carbon_chain_length)) #checking the amount of NAs
+#[1] 65
+dat_ccl <- dat[complete.cases(dat[ , "carbon_chain_length"]),]
+sum(is.na(dat_ccl$carbon_chain_length))
+#[1] 0
+```
+
+```{r, eval=FALSE}
+ccl_model <- run_model(dat_ccl, ~scale(carbon_chain_length))
+#ccl_model <- robust(ccl_model, dat_ccl$measurement_ID_P)
+save(ccl_model, file = here("Rdata", "ccl_model.RData"))
+```
+
+```{r}
+load(here("RData", "ccl_model.RData"))
+summary(ccl_model)
+r2_ccl <- r2_ml(ccl_model, dat_ccl)
+   # R2_marginal R2_conditional 
+   #  0.03661442     0.06370038 
+
+
+ccl_bubble <- orchaRd::mod_results(ccl_model, 
+                                   mod = "carbon_chain_length", 
+                                   group = "study_ID")
+                                   
+  
+fig_ccl <- bubble_plot(ccl_bubble,
+            mod = "carbon_chain_length",
+            group = "study_ID",
+            x = "carbon_chain_length",
+            y = "lnRR",
+            est.lwd = 1,
+            legend.pos = "bottom.right",
+            k.pos = "bottom.left",
+            ci.col = "red",
+            pi.col = "black",
+            est.col = "black",
+            g = TRUE) +
+  annotate(geom ="text",
+           x = 7,
+           y = 6.2,
+           label = paste0("italic(R)^{2} == ", round(r2_ccl[1],4)),
+           color = "black",
+           parse = TRUE,
+           size = 4) +
+  ggtitle("a)") +
+  theme(plot.title = element_text(size = 18),
+        legend.title = element_text(size = 11),
+        legend.text = element_text(size = 9),
+        axis.title.x = element_text(size = 16),
+        axis.title.y = element_text(size = 16),
+        axis.text.y = element_text(size = 14),
+        axis.text.x = element_text(size = 14)) +
+  xlab("Carbon chain length")
+
+fig_ccl
+
+# ggsave(here("figs","fig3_a.png"),
+#        width = 8,
+#        height = 6)
+```
+
+## PFAS molecular weight
+
+```{r, eval=FALSE}
+sum(is.na(dat$molecular_weight))
+# [1] 66
+mw_model <- run_model(dat, ~scale(molecular_weight))
+mw_model <- robust(mw_model, dat$measurement_ID_P)
+
+save(mw_model, file = here("RData", "mw_model.RData"))
+```
+
+```{r}
+load(here("RData", "mw_model.RData"))
+summary(mw_model)
+r2_mw <- r2_ml(mw_model, dat)
+   # R2_marginal R2_conditional 
+   #  0.03661442     0.06370038 
+
+mw_bubble <- orchaRd::mod_results(mw_model,
+                          mod = "molecular_weight",
+                          group = "study_ID")
+
+fig_mw <- orchaRd::bubble_plot(mw_bubble, 
+            mod = "molecular_weight", 
+            group = "study_ID",
+            xlab = "molecular_weight",
+            ylab = "lnRR",
+            legend.pos = "bottom.right",
+            k.pos = "bottom.left",
+            ci.col = "red",
+            pi.col = "black",
+            g = TRUE) +
+  annotate(geom ="text",
+           x = 350,
+           y = 6, 
+           label= paste0("italic(R)^{2} == ", round(r2_mw[1],4)),
+           color="black",
+           parse = TRUE, 
+           size = 4) +
+  ggtitle("b)") +
+  theme(plot.title = element_text(size = 18),
+        legend.title = element_text(size = 11),
+        legend.text = element_text(size = 9),
+        axis.title.x = element_text(size = 16),
+        axis.title.y = element_text(size = 16),
+        axis.text.y = element_text(size = 14),
+        axis.text.x = element_text(size = 14)) +
+  xlab("Molecular weight")
+
+fig_mw
+
+# ggsave(here("figs","fig3_b.png"),
+#        width = 8,
+#        height = 6)
+
+# Pearson's correlation
+cor.test(dat$carbon_chain_length, dat$molecular_weight) #extremely highly correlated (cor=0.9515476)
+```
+
+## PFAS functional group
+
+```{r}
+sum(is.na(dat$functional_group))
+#[1] 1
+dat_fg <- dat[complete.cases(dat[ , "functional_group"]),]
+sum(is.na(dat_fg$functional_group))
+#[1] 0
+
+# Replace values in "functional_group" column
+dat_fg <- dat_fg %>%
+  mutate(functional_group = case_when(
+    functional_group == "Sulfonate / sulfonic acid" ~ "Sulfonate",
+    functional_group == "Carboxylate / carboxylic acid" ~ "Carboxylate",
+    TRUE ~ functional_group  # Keep other values unchanged
+  ))
+```
+
+```{r, eval=FALSE}
+fun_gro_model <- run_model(dat_fg, ~ functional_group - 1)
+fun_gro_model <- robust(fun_gro_model, dat_fg$measurement_ID_P)
+
+save(fun_gro_model, file = here("Rdata", "fun_gro_model.RData"))
+```
+
+```{r}
+load(here("RData", "fun_gro_model.RData"))
+summary(fun_gro_model)
+r2_fun_gro <- r2_ml(fun_gro_model, dat_fg)
+   # R2_marginal R2_conditional 
+   #  0.01542742     0.07111715 
+
+fig_fg <- orchard_plot(fun_gro_model,
+             mod = "functional_group",
+             group = "study_ID",
+             xlab = "lnRR",
+             legend.pos = "bottom.right",
+             k.pos = "right",
+             angle = 90,
+             colour = "black",
+             fill = FALSE,
+             trunk.size = 5,
+             branch.size = 1.1,
+             twig.size = 0.5) +
+  annotate(geom = "text",
+           x = 4.4,
+           y = -6, 
+           label = paste0("italic(R)^{2} == ", round(r2_fun_gro[1],4)),
+           color ="black",
+           parse = TRUE, 
+           size = 4) +
+  ggtitle("c)")+
+  theme(plot.title = element_text(size = 18),
+       legend.title = element_text(size = 11),
+        legend.text = element_text(size = 9),
+        axis.title.x = element_text(size = 16),
+        axis.title.y = element_text(size = 16),
+        axis.text.y = element_text(size = 14),
+       axis.text.x = element_text(size = 14))
+
+fig_fg
+
+# ggsave(here("figs","fig3_c.png"),
+#        width = 8,
+#        height = 6)
+```
+
+Combine and save previous three plots:
+
+```{r}
+(fig_ccl / fig_mw) - fig_fg
+
+# ggsave(here("figs","fig3.png"),
+#        width = 13,
+#        height = 10)
+```
+
+## Clutch size
+
+```{r, eval=FALSE}
+sum(is.na(dat$clutch_size))
+#[1] 0
+clutch_size_model <- run_model(dat, ~ clutch_size)
+
+save(clutch_size_model, file = here("Rdata", "clutch_size_model.RData"))
+```
+
+```{r}
+load(here("RData", "clutch_size_model.RData"))
+summary(clutch_size_model)
+r2_clutch <- r2_ml(clutch_size_model, dat)
+   # R2_marginal R2_conditional 
+   #  0.03530602     0.05173175 
+
+fig_clutch_size <- bubble_plot(clutch_size_model,
+             mod = "clutch_size",
+             group = "study_ID", 
+             xlab = "clutch_size",
+             ylab = "lnRR",
+             legend.pos = "bottom.right",
+             k.pos = "top.right",
+             ci.col = "red",
+             pi.col = "black",
+             g = TRUE) +
+  annotate(geom = "text",
+           x = 1.5,
+           y = -7, 
+           label = paste0("italic(R)^{2} == ", round(r2_clutch[1],4)),
+           color = "black",
+           parse = TRUE, 
+           size = 4) +
+  ggtitle("a)") +
+  theme(plot.title = element_text(size = 19),
+        legend.title = element_text(size = 11),
+        legend.text = element_text(size = 9),
+        axis.title.x = element_text(size = 17),
+        axis.title.y = element_text(size = 17),
+        axis.text = element_text(size = 15)) +
+  xlab("Clutch size")
+
+fig_clutch_size
+
+# ggsave(here("figs","fig4_a.png"),
+#        width = 9,
+#        height = 7)
+```
+
+## Egg weight
+
+```{r}
+sum(is.na(dat$egg_weight_mean))
+#[1] 67
+dat_egg_weight <- dat[complete.cases(dat[ , "egg_weight_mean"]),] #removing NAs
+sum(is.na(dat_egg_weight$egg_weight_mean))
+#[1] 0
+```
+
+```{r, eval=FALSE}
+egg_weight_model <- run_model(dat_egg_weight, ~ egg_weight_mean)
+
+save(egg_weight_model, file = here("Rdata", "egg_weight_model.RData"))
+```
+
+```{r}
+load(here("RData", "egg_weight_model.RData"))
+summary(egg_weight_model)
+r2_egg_weight <- r2_ml(egg_weight_model, dat_egg_weight)
+   # R2_marginal R2_conditional 
+   # 0.001223228    0.061974475 
+
+fig_egg_weight <- bubble_plot(egg_weight_model,
+             mod = "egg_weight_mean",
+             group = "study_ID",
+             xlab = "egg_weight_mean",
+             ylab = "lnRR",
+             legend.pos = "bottom.right",
+             k.pos = "top.right",
+             ci.col = "red",
+             pi.col = "black",
+             g = TRUE) +
+  annotate(geom = "text",
+           x = 20,
+           y = -6.7, 
+           label = paste0("italic(R)^{2} == ", round(r2_egg_weight[1],4)),
+           color = "black",
+           parse = TRUE, 
+           size = 4) +
+  ggtitle("b)") +
+  theme(plot.title = element_text(size = 19),
+         legend.title = element_text(size = 11),
+        legend.text = element_text(size = 9),
+        axis.title.x = element_text(size = 17),
+        axis.title.y = element_text(size = 17),
+        axis.text = element_text(size = 15)) +
+  xlab("Egg weight")
+fig_egg_weight
+# ggsave(here("figs","fig4_b.png"),
+#        width = 9,
+#        height = 7)
+
+# Pearson's correlation
+cor.test(dat$clutch_size, dat$egg_weight_mean) #not particularly correlated (cor=-0.603498)
+```
+
+## Body weight
+
+```{r, eval=FALSE}
+sum(is.na(dat$body_weight_mean))
+#[1] 0
+body_weight_model <- run_model(dat, ~ body_weight_mean)
+
+save(body_weight_model, file = here("Rdata", "body_weight_model.RData"))
+```
+
+```{r}
+load(here("RData", "body_weight_model.RData"))
+summary(body_weight_model)
+r2_body_weight <- r2_ml(body_weight_model, dat)
+   # R2_marginal R2_conditional 
+   # 0.002470588    0.060485980 
+
+fig_body_weight <- bubble_plot(body_weight_model,
+             mod = "body_weight_mean",
+             group = "study_ID",
+             xlab = "body_weight_mean",
+             ylab = "lnRR",
+             legend.pos = "bottom.right",
+             k.pos = "top.right",
+             ci.col = "red",
+             pi.col = "black",
+             g = TRUE) +
+  annotate(geom = "text",
+           x = 400,
+           y = -7, 
+           label= paste0("italic(R)^{2} == ", round(r2_body_weight[1],4)),
+           color="black",
+           parse = TRUE, 
+           size = 4) +
+  ggtitle("c)") +
+  theme(plot.title = element_text(size = 19),
+       legend.title = element_text(size = 11),
+        legend.text = element_text(size = 9),
+        axis.title.x = element_text(size = 17),
+        axis.title.y = element_text(size = 17),
+        axis.text = element_text(size = 15)) +
+  xlab("Body weight")
+fig_body_weight
+# ggsave(here("figs","fig4_c.png"),
+#        width = 9,
+#        height = 7)
+```
+
+## Laying order
+
+```{r, eval=FALSE}
+sum(is.na(dat$laying_order))
+#[1] 315
+laying_order_model <- run_model(dat, ~scale(laying_order))
+
+save(laying_order_model, file = here("Rdata", "laying_order_model.RData"))
+```
+
+```{r}
+load(here("RData", "laying_order_model.RData"))
+summary(laying_order_model)
+r2_laying_order <- r2_ml(laying_order_model, dat)
+fig_laying_order <- bubble_plot(laying_order_model,
+             mod = "laying_order",
+             group = "study_ID",
+             xlab = "laying_order",
+             ylab = "lnRR",
+             legend.pos = "bottom.right",
+             k.pos = "top.right",
+             ci.col = "red",
+             pi.col = "black",
+             g = TRUE) +
+  annotate(geom = "text",
+           x = 1.15,
+           y = -3, 
+           label= paste0("italic(R)^{2} == ", round(r2_laying_order[1],4)),
+           color="black",
+           parse = TRUE, 
+           size = 4) +
+  ggtitle("d)") +
+  theme(plot.title = element_text(size = 19),
+        legend.title = element_text(size = 11),
+        legend.text = element_text(size = 9),
+        axis.title.x = element_text(size = 17),
+        axis.title.y = element_text(size = 17),
+        axis.text = element_text(size = 15)) +
+  xlab("Laying order")
+fig_laying_order
+#laying order has many NAs. Thus, it won't be added to the full model.
+
+# ggsave(here("figs","fig4_d.png"),
+#        width = 9,
+#        height = 7)
+```
+
+Combine and save previous four plots:
+
+```{r}
+(fig_clutch_size / fig_egg_weight) - (fig_body_weight /fig_laying_order)
+
+# ggsave(here("figs","fig4.png"),
+#        width = 14,
+#        height = 9)
+```
+
+## Sample type adult
+
+```{r, eval=FALSE}
+sample_type_a_model <- run_model(dat, ~ sample_type_A - 1)
+
+save(sample_type_a_model, file = here("Rdata", "sample_type_a_model.RData"))
+```
+
+```{r}
+load(here("RData", "sample_type_a_model.RData"))
+sample_type_a_model_rob <- robust(sample_type_a_model, dat$measurement_ID_P)
+summary(sample_type_a_model_rob)
+r2_sample_type_a <-  r2_ml(sample_type_a_model_rob, dat)
+   # R2_marginal R2_conditional 
+   #   0.1157470      0.1879693 
+
+fig_sample_a <- orchard_plot(sample_type_a_model_rob,
+             mod = "sample_type_A",
+             group = "study_ID", 
+             xlab = "lnRR",
+             k.pos = "left",
+             angle = 45,
+             colour = FALSE,
+             fill = FALSE,
+             trunk.size = 4,
+             branch.size = 1,
+             twig.size = 0.5
+             ) +
+  annotate(geom="text",
+           x= 9.4,
+           y= 5, 
+           label= paste0("italic(R)^{2} == ", round(r2_sample_type_a[1],4)),
+           color="black",
+           parse = TRUE, 
+           size = 3) +
+  ggtitle("a)") +
+  theme(plot.title = element_text(size = 16),
+         legend.title = element_text(size = 11),
+        legend.text = element_text(size = 9),
+        axis.title.x = element_text(size = 14),
+        axis.title.y = element_text(size = 14),
+        axis.text.y = element_text(size = 12),
+       axis.text.x = element_text(size = 12))
+fig_sample_a
+# ggsave(here("figs","fig5_a.png"),
+#        width = 9,
+#        height = 7)
+```
+
+## Sample type progeny
+
+```{r, eval=FALSE}
+sample_type_p_model <- run_model(dat, ~ sample_type_P - 1)
+
+save(sample_type_p_model, file = here("Rdata", "sample_type_p_model.RData"))
+```
+
+```{r}
+load(here("RData", "sample_type_p_model.RData"))
+sample_type_p_model_rob <- robust(sample_type_p_model, dat$measurement_ID_P)
+summary(sample_type_p_model_rob)
+r2_sample_type_p <-  r2_ml(sample_type_p_model_rob, dat)
+   # R2_marginal R2_conditional
+   #   0.6264584      0.7909686
+
+fig_sample_p <- orchard_plot(sample_type_p_model_rob,
+             mod = "sample_type_P",
+             group = "study_ID", 
+             xlab = "lnRR",
+             k.pos = "left",
+             angle = 45,
+             colour = FALSE,
+             fill = FALSE,
+             trunk.size = 4,
+             branch.size = 1,
+             twig.size = 0.5
+             ) +
+  annotate(geom="text",
+           x= 5.4,
+           y= 5, 
+           label= paste0("italic(R)^{2} == ", round(r2_sample_type_p[1],4)),
+           color="black",
+           parse = TRUE, 
+           size = 3) +
+  ggtitle("b)") +
+  theme(plot.title = element_text(size = 16),
+        legend.title = element_text(size = 11),
+        legend.text = element_text(size = 9),
+        axis.title.x = element_text(size = 14),
+        axis.title.y = element_text(size = 14),
+        axis.text.y = element_text(size = 12),
+       axis.text.x = element_text(size = 12))
+
+# ggsave(here("figs","fig5_b.png"),
+#        width = 9,
+#        height = 7)
+```
+
+## Diet
+
+```{r}
+sum(is.na(dat$diet))
+#[1] 0
+
+dat_diet <- dat %>%
+  mutate(diet = case_when(
+    diet == "Piscivorous, avivorous and kleptoparasite" ~ "Diet type 1",
+    diet == "Piscivorous" ~ "Diet type 2",
+    diet == "Opportunistic and diverse" ~ "Diet type 3",
+    diet == "Omnivorous" ~ "Diet type 4",
+    diet == "Insectivorous" ~ "Diet type 5",
+    TRUE ~ diet
+  ))
+
+```
+
+```{r, eval=FALSE}
+diet_model <- run_model(dat_diet, ~ diet - 1)
+
+save(diet_model, file = here("Rdata", "diet_model.RData"))
+```
+
+```{r}
+load(here("RData", "diet_model.RData"))
+diet_model_rob <- robust(diet_model, dat_diet$measurement_ID_P)
+summary(diet_model_rob)
+r2_diet <- r2_ml(diet_model_rob, dat_diet)
+   # R2_marginal R2_conditional 
+   #  0.04943506     0.06617858 
+
+fig_diet <- orchard_plot(diet_model_rob,
+             mod = "diet",
+             group = "study_ID",
+             xlab = "lnRR",
+             k.pos = "left",
+             angle = 45,
+             colour = FALSE,
+             fill = FALSE,
+             trunk.size = 4,
+             branch.size = 1,
+             twig.size = 0.5
+             ) +
+  annotate(geom="text",
+           x = 5.4,
+           y = 5, 
+           label= paste0("italic(R)^{2} == ", round(r2_diet[1],4)),
+           color="black",
+           parse = TRUE, 
+           size = 3) +
+  ggtitle("c)") +
+  theme(plot.title = element_text(size = 16),
+         legend.title = element_text(size = 11),
+        legend.text = element_text(size = 9),
+        axis.title.x = element_text(size = 14),
+        axis.title.y = element_text(size = 14),
+        axis.text.y = element_text(size = 12),
+       axis.text.x = element_text(size = 12))
+
+# ggsave(here("figs","fig5_c.png"),
+#        width = 9,
+#        height = 7)
+
+subset(dat_diet, dat_diet$diet == "Diet type 5")$study_ID
+#Study S_002 is the only one including an insectivorous species
+```
+
+Combine and save previous three plots:
+
+```{r}
+fig_sample_a - (fig_sample_p / fig_diet)
+
+# ggsave(here("figs","fig5.png"),
+#        width = 9,
+#        height = 11)
+```
+
+## Life stage progeny (egg OR chick)
+
+```{r, eval=FALSE}
+sum(is.na(dat$life_stage_P))
+#[1] 0
+life_stage_model <- run_model(dat, ~ life_stage_P - 1)
+
+save(life_stage_model, file = here("Rdata", "life_stage_model.RData"))
+```
+
+```{r}
+load(here("RData", "life_stage_model.RData"))
+summary(life_stage_model)
+r2_ml(life_stage_model, dat)
+   # R2_marginal R2_conditional 
+   #  0.00278897     0.07829010 
+
+fig_life_stage_p <- orchard_plot(life_stage_model,
+             mod = "life_stage_P",
+             group = "study_ID",
+             xlab = "lnRR",
+             angle = 45,
+             colour = FALSE,
+             fill = FALSE,
+             trunk.size = 2,
+             branch.size = 1,
+             twig.size = 0.5) +
+  ggtitle("") +
+  theme(plot.title = element_text(face = "bold"))
+
+fig_life_stage_p
+
+ggsave(here("figs/Suppl_figs","Sfig7.png"),
+       width = 5,
+       height = 5)
+```
+
+#Multi-moderator model
+
+Mixed-effects meta-regression model. Multivariate meta-analysis model with multiple covariates, using a multilevel random-effects approach.
+
+```{r, eval=FALSE}
+full_model0 <- rma.mv(yi = lnRR,
+                      V = VCV_lnRR, 
+                      mods = ~  1 + 
+                        functional_group +
+                        scale(carbon_chain_length) +
+                        sample_type_A +
+                        sample_type_P +
+                        scale(clutch_size) +
+                        scale(body_weight_mean) +
+                        scale(egg_weight_mean) +
+                        life_stage_P +
+                        diet,
+                      random = list(~1|study_ID,
+                                    ~1|pfas_ID, 
+                                    ~1|es_ID
+                                    ),
+                      test = "t",
+                      data = dat,
+                      sparse = TRUE)
+
+#save(full_model0, file = here("Rdata", "full_model0.RData"))
+
+
+# try <- orchaRd::mod_results(full_model0, group = "study_ID", mod = "functional_group", weights = "prop")
+
+```
+
+```{r}
+load(here("RData", "full_model0.RData"))
+summary(full_model0)
+r2_ml(full_model0, dat)
+```
+
+# Model selection
+
+From: <https://itchyshin.github.io/Meta-analysis_tutorial/>
+
+Model selection is a powerful method to:
+
+-   *quantify the importance of moderators* in explaining heterogeneity, which is useful when look for, for example, global drivers of environmental changes;
+
+-   *multimodel inference*, which can make model inferences about the moderators in the context of models with all possible combinations of moderators rather than a single 'best' model;
+
+-   *multimodel predictions*, which can predict (average) effects of a moderator and its CIs based on models with all possible combinations of moderators rather than a single 'best' model.
+
+We performed model selection using an information-theoretic approach with the help of the metafor package and other specialized packages such as MuMIn or glmulti. We will specifically be using the MuMIn package due to its simpler syntax. It is important to note that while using R2 for model selection is a viable option, it is not the preferred method in this case."
+
+**Important point**: when conducting a meta-analysis, it is important to carefully choose the moderators based on their prior plausibility and the predefined research questions you are trying to address. It is not recommended to include a large number of moderators or to remove them until you obtain a significant model.
+
+By 'best model', we mean the acceptable amount of information loss when we use a fitted model to approximate the real data generating mechanism. When we refer to the "best model," we are referring to the model that has the least amount of information loss when approximating the actual data generating process. To identify the best model, we first fit a multilevel multi-moderator meta-analytic model with all plausible moderators (referred to as the full model). We then use maximum likelihood (ML) to produce models with all possible combinations of moderators from the full model. This process is known as **dredging**.
+
+```{r, eval=FALSE}
+eval(metafor:::.MuMIn) # use eval() function to extract helper functions from MuMIn and make them usable in metafor.
+mod.candidate <- dredge(full_model0, beta = "none", evaluate = TRUE, rank = "AICc", trace=2) # dredge to produce all possible models
+
+# Save the candidate best model
+save(mod.candidate, file = here("Rdata", "best_model.RData"))
+```
+
+```{r}
+# Next step, let’s select a sets of best model. This can be done by using thumb of rules, for example, delta AICc <= 4:
+load(here("RData", "best_model.RData"))
+subset(mod.candidate, delta <= 4, recalc.weights = FALSE)
+
+```
+
+The model selection table shows the results of model selection based on the AICc criterion.
+
+The model with the best AICc is the one at the top of the table, which has the lowest AICc and the highest weight:
+
+| Global model call: rma.mv(yi = lnRR, V = VCV_lnRR, mods = \~1 + functional_group + scale(carbon_chain_length) + sample_type_A + sample_type_P, random = list(\~1 \| study_ID, \~1 \| pfas_ID, \~1 \| es_ID), data = dat, test = "t", sparse = TRUE) \-\-- Model selection table (Int) fnc_grp smp_typ_A smp_typ_P scl(crb_chn_lng) df logLik AICc delta weight 16 + + + + 0.3964 19 -479.083 998.8 0 0.948 Models ranked by AICc(x)
+
+All the variables (labeled "fnc_grp", "smp_typ_A", "smp_typ_P" and "crb_chn_lng") are included as predictors in the best model according to the AICc criterion. These variables are used as predictor in the model with the aim to explain the variation in the outcome variable, lnRR. The column labeled "scl(crb_chn_lng)" shows the scaling factor applied to the variable "carbon_chain_length" random effects term, so it means the variable "carbon_chain_length" is included in the model and it's random effects term has been scaled by 0.3964.
+
+AIC weights:
+```{r}
+load(here("RData", "best_model.RData"))
+# Sum of weights for each variable included in the mod.candidate
+sw(mod.candidate)
+```
+
+R-squared conditional is more appropriate the R-squared marginal for comparing different models that have the same set of predictor variables and here we are comparing the R-squared of single-moderator meta-regression models that have the same random structure but a different moderator.
+This is because R-squared conditional measures the strength of the relationship between the dependent and independent variables, given that the other variables are already included in the model. By using R-squared conditional, you can compare the relative strength of the relationships between the dependent variable and the independent variables in each of the models, taking into account the other variables that are included in both models.
+
+Plot
+```{r}
+weights <- read_csv(here("Data", "sum_of_weights_AIC.csv")) #upload data from sw(mod.candidate)
+
+weights <- weights %>% 
+  mutate(weights_percentage = round( Sum_of_weights * 100))
+
+weights$Predictor <- factor(weights$Predictor, levels = weights$Predictor[order(weights$weights_percentage, weights$R2_marginal)])
+
+
+AIC_weights <- ggplot(weights, aes(Predictor, Sum_of_weights)) +
+  geom_col(aes(fill = ""), width = 0.7) +
+  geom_text(aes(label = paste0(weights_percentage, "%"), x = Predictor), 
+            position = position_stack(vjust = 0.5), 
+            size = 4.5) +
+  geom_text(aes(label = paste("R2 =", sprintf("%.3f", R2_marginal)), x = Predictor, y =  max(Sum_of_weights)), #R2 conditional 
+            position = position_stack(vjust = 1.07), 
+            size = 4.5, color = "red") +
+  theme_light() +
+  coord_flip() +
+  scale_fill_manual(values = c("#999999")) +
+  scale_x_discrete(name = "Predictor") +
+  scale_y_continuous(name = "AIC weights",
+                     breaks = seq(0, 1, by = 0.2)) +
+  theme(legend.position = "none",
+        axis.title.x = element_text(size = 18),
+        axis.title.y = element_text(size = 18),
+        axis.text = element_text(size = 16),
+        panel.grid.major = element_line(color = "grey", 
+                                       linewidth  = 0.2, 
+                                       linetype = "dashed"),
+       panel.grid.minor = element_line(color = "grey", 
+                                      linewidth  = 0.2, 
+                                      linetype = "dotted"))
+AIC_weights
+
+# ggsave(here("figs","fig6.png"),
+#        width = 12,
+#        height = 8)
+```
+
+
+# Publication bias
+
+Publication bias is the phenomenon where studies with certain characteristics, such as small sample size, are more likely to be published.
+
+## Funnel plot
+
+```{r}
+pdf(NULL)
+dev.control(displaylist="enable")
+# png(here("figs","figX.png"), width = 6,
+#        height = 7, units = "in", res = 600)
+# Increase text size for x and y axes
+par(cex.axis = 1.5)
+
+# Increase label size for x and y axes
+par(cex.lab = 1.5)
+
+
+fig_funnel <- funnel(full_model0,
+       yaxis = "seinv",
+       level = c(90, 95),
+       shade = c("white", "gray55"),
+       back = "#EBEBEB",
+       legend = FALSE,
+       ylab = "Precision (1/SE)",
+       cex.lab = 1.5,
+       digits = 1,
+       xlim = c(-5,5)
+       )
+
+fig_funnel <- recordPlot()
+invisible(dev.off())
+```
+
+
+## Small study effect
+
+One form of publication bias is the small study effect, where smaller studies tend to report larger treatment effects than larger studies. To detect this, one way is to examine the relationship between effect size and its uncertainty by adding the uncertainty as a moderator variable. This will allow to quantify the correlation between the effect size and its uncertainty.
+
+```{r, eval=FALSE}
+MLMR_mod_ess.se <- rma.mv(yi = lnRR, 
+                               V = VCV_lnRR, 
+                               mods = ~ ess.se, # add adjusted based sampling error - tilde square root n as a moderator to test small study effect (see section "lnRR and variance calculations).
+                               random = list(~1|study_ID,
+                                          ~1|pfas_ID, 
+                                          ~1|es_ID
+                                          ), 
+                               method = "REML", 
+                               test = "t", 
+                               data = dat
+                               )
+save(MLMR_mod_ess.se, file = here("Rdata", "MLMR_mod_ess.se.RData"))
+```
+
+```{r}
+load(here("RData", "MLMR_mod_ess.se.RData"))
+summary(MLMR_mod_ess.se)
+pb2_bubble <- orchaRd::mod_results(MLMR_mod_ess.se,
+                                  mod = "ess.se",
+                                  group = "study_ID",
+                                  data = dat)
+
+bias1 <- orchaRd::bubble_plot(pb2_bubble, 
+                     #data = dat,
+                     group = "study_ID",
+                     mod = "ess.se",
+                     xlab = "Adjusted standard error", 
+                     ylab = "Mean ratio (lnRR)",
+            legend.pos = "bottom.right",
+            k.pos = "top.right",
+            ci.col = "red",
+            pi.col = "black",
+            est.col = "black") +
+  ggtitle("") +
+  theme(plot.title = element_text(size = 18),
+        axis.title.x = element_text(size = 16),
+        axis.title.y = element_text(size = 16),
+        axis.text.y = element_text(size = 14),
+        axis.text.x = element_text(size = 14)) +
+  xlab("Adjusted standard error") +
+  ylab("lnRR")
+
+# ggsave(here("figs","fig7_b.png"),
+#        width = 9,
+#        height = 7)
+```
+
+If we look at ess.se given under Model Results: p-value and 95% CIs suggest that there is no statistical relationship between the effect size its error, meaning that no small study effect exits.
+
+## Time-lag bias
+
+```{r, eval = FALSE}
+MLMR_mod_year.c <- metafor::rma.mv(lnRR,
+                            VCV_lnRR,
+                            mods = ~ scale(year_publication),
+                            random = list(~1|study_ID,
+                                          ~1|pfas_ID, 
+                                          ~1|es_ID
+                                          ),
+                            data = dat)
+save(MLMR_mod_year.c, file = here("Rdata", "MLMR_mod_year.c.RData"))
+```
+
+```{r}
+load(here("RData", "MLMR_mod_year.c.RData"))
+summary(MLMR_mod_year.c)
+pb_bubble <- orchaRd::mod_results(MLMR_mod_year.c,
+                                  mod = "year_publication",
+                                  group = "study_ID",
+                                  data = dat)
+
+bias2 <- orchaRd::bubble_plot(pb_bubble,
+                     group = "study_ID",
+                     mod = "year_publication",
+                     xlab = "Publication year", 
+                     ylab = "Mean ratio (lnRR)",
+            legend.pos = "bottom.right",
+            k.pos = "top.right",
+            ci.col = "red",
+            pi.col = "black",
+            est.col = "black") +
+  ggtitle("") +
+  theme(plot.title = element_text(size = 18),
+        axis.title.x = element_text(size = 16),
+        axis.title.y = element_text(size = 16),
+        axis.text.y = element_text(size = 14),
+        axis.text.x = element_text(size = 14)) +
+  xlab("Year") +
+  ylab("lnRR")
+
+# ggsave(here("figs","fig7_c.png"),
+#        width = 9,
+#        height = 7)
+```
+
+p-value and 95% CIs suggest that there is no statistical relationship between the publication year and its error, meaning that no publication bias effect exits.
+
+```{r}
+(plot_grid(fig_funnel) + (ggdraw(bias1) / ggdraw(bias2))) + plot_layout(tag_level = 'new') +  plot_annotation(tag_levels = list(c("a)", "b)", "c)")))
+
+ggsave(here("figs","fig7.png"),
+       width = 10,
+       height = 8)
+```
+# Sensitivity analyses
+
+## Leave-one-out-analyses
+```{r}
+dat <- dat %>%
+  mutate(leave_out = study_ID)
+
+dat$leave_out <- as.factor(dat$leave_out)
+
+
+LeaveOneOut_effectsize <- list()
+for (i in 1:length(levels(dat$leave_out))) {
+  temp_dat <- dat %>%
+    filter(leave_out != levels(dat$leave_out)[i])
+  
+  VCV_leaveout <- vcalc(vi = temp_dat$var_lnRR, cluster = temp_dat$measurement_ID_A, rho = 0.5)
+  
+  LeaveOneOut_effectsize[[i]] <-  rma.mv(yi = lnRR,
+                                         V = VCV_leaveout, 
+                                         random = list(~1|study_ID,
+                                                       ~1|pfas_ID,
+                                                       ~1|es_ID),
+                                         test = "t",
+                                         sparse = TRUE,
+                                         data = temp_dat[temp_dat$leave_out != levels(temp_dat$leave_out)[i], ])
+}
+
+# writing function for extracting est, ci.lb, and ci.ub from all models
+est.func <- function(model) {
+  df <- data.frame(est = model$b, lower = model$ci.lb, upper = model$ci.ub)
+  return(df)
+}
+
+# using dplyr to form data frame
+MA_oneout <- lapply(LeaveOneOut_effectsize,function(x) est.func(x)) %>%
+  bind_rows %>%
+  mutate(left_out = levels(dat$leave_out))
+
+
+# telling ggplot to stop reordering factors
+MA_oneout$left_out <- as.factor(MA_oneout$left_out)
+MA_oneout$left_out <- factor(MA_oneout$left_out, levels = MA_oneout$left_out)
+
+# saving the runs
+saveRDS(MA_oneout, here("Rdata", "MA_oneout.RDS"))
+```
+
+```{r}
+MA_oneout <- readRDS(here("Rdata", "MA_oneout.RDS"))
+
+# plotting
+leaveoneout <- ggplot(MA_oneout) + geom_hline(yintercept = 0, lty = 2, lwd = 1) +
+
+  geom_hline(yintercept = ma_model_rob$ci.lb, lty = 3, lwd = 0.75, colour = "black") +
+  geom_hline(yintercept = ma_model_rob$b, lty = 1, lwd = 0.75, colour = "black") + 
+  geom_hline(yintercept = ma_model_rob$ci.ub,
+             lty = 3, lwd = 0.75, colour = "black") + 
+  geom_pointrange(aes(x = left_out, y = est,
+                      ymin = lower, ymax = upper)) + 
+  xlab("Study left out") + 
+  ylab("lnRR (effect size), 95% CI") +
+  coord_flip() + 
+  theme(panel.grid.minor = element_blank()) + theme_bw() + theme(panel.grid.major = element_blank()) +
+  theme(panel.grid.minor.x = element_blank()) + theme(axis.text.y = element_text(size = 6))
+
+leaveoneout
+
+#Save the plot
+# ggsave(here("figs/Suppl_figs","Sfig8.png"),
+#        width = 7,
+#        height = 5)
+```
+
+## Female concentrations and same nest data only
+
+```{r}
+dat2_sa <-
+  dat %>%
+  dplyr::filter(data_pooled == "No" & nest == "Yes")
+
+dim(dat2_sa)
+#[1] 261  66
+
+VCV_lnRR_dat2 <- impute_covariance_matrix(dat2_sa$var_lnRR,
+                                          cluster = dat2_sa$measurement_ID_A,
+                                          r = 0.5)
+```
+```{r, eval=FALSE}
+dat2_sa_model <- rma.mv(yi = lnRR,
+             V = VCV_lnRR_dat2, 
+             random = list(~1|study_ID,
+                            ~1|pfas_ID,
+                            ~1|es_ID
+                           ),
+             test = "t",
+             data = dat2_sa)
+dat2_sa_model <- robust(dat2_sa_model, dat2_sa$measurement_ID_P)
+
+save(dat2_sa_model, file = here("Rdata", "dat2_sa_model.RData"))
+```
+
+```{r, eval=FALSE}
+load(here("RData", "dat2_sa_model.RData"))
+summary(dat2_sa_model)
+I2 <- orchaRd::i2_ml(dat2_sa_model)
+i2_ml(dat2_sa_model)
+orchaRd::orchard_plot(dat2_sa_model,
+             mod = "1",
+             group = "study_ID", 
+             xlab = "lnRR",
+             alpha = 0.6,
+             trunk.size = 3,
+             branch.size = 1.5,
+             twig.size = 1,
+             k.pos = "right",
+             colour = TRUE,
+             fill = FALSE) +  
+  annotate(geom = "text",
+           x = 1.2,
+           y = 6.2, 
+           label = paste0("italic(I)^{2} == ", round(I2[1],4)),
+           color ="black",
+           parse = TRUE, 
+           size = 3.5) +
+           #scale_colour_manual(values = "darkorange")+ # change colours
+           #scale_fill_manual(values="darkorange")+ 
+           scale_size_continuous(range = c(1, 7)) + # change point scaling
+  ggtitle("") +
+  theme(panel.border = element_rect(colour = "black", 
+                                             fill=NA,
+                                             size=1.3), # border around the plot
+                 text = element_text(size = 15), # change font sizes
+                 legend.title = element_text(size = 12),
+                 legend.text = element_text(size = 10))
+
+# ggsave(here("figs/Suppl_figs","Sfig9.png"),
+#        width = 8,
+#        height = 6)
+```
+
+
+## Limit of detection/quantification treatment strategy
+
+The following chunk loads the model that was run at lines 798-810 (Intercept meta-analytic model). Undetected concentrations in this model are replaced by the limit of detecrtion (or quantification) divided by two.
+```{r}
+load(here("RData", "ma_model2.RData"))
+
+ma_model2 <- robust(ma_model2, dat$measurement_ID_P) #The robust() function computes robust standard errors that account for non-normality and/or heteroscedasticity in the residuals.
+
+I2 <- orchaRd::i2_ml(ma_model2)
+i2_ml(ma_model2)
+  #  I2_Total I2_study_ID  I2_pfas_ID    I2_es_ID
+  # 99.001034    4.030746    2.329994   92.640294
+
+ma_model_bubble2 <- orchaRd::orchard_plot(ma_model2,
+             mod = "1",
+             group = "study_ID", 
+             xlab = "lnRR",
+             alpha = 0.6,
+             trunk.size = 3,
+             branch.size = 1.5,
+             twig.size = 1,
+             k.pos = "right",
+             colour = TRUE,
+             fill = FALSE) +  
+  annotate(geom = "text",
+           x = 1.2,
+           y = 6.2, 
+           label = paste0("italic(I)^{2} == ", round(I2[1],4)),
+           color ="black",
+           parse = TRUE, 
+           size = 3.5) +
+           #scale_colour_manual(values = "darkorange")+ # change colours
+           #scale_fill_manual(values="darkorange")+ 
+           scale_size_continuous(range = c(1, 7)) + # change point scaling
+  ggtitle("") +
+  theme(panel.border = element_rect(colour = "black", 
+                                             fill=NA,
+                                             size=1.3), # border around the plot
+                 text = element_text(size = 15), # change font sizes
+                 legend.title = element_text(size = 12),
+                 legend.text = element_text(size = 10))
+
+
+ma_model_bubble2
+#Save the plot
+# ggsave(here("figs/Suppl_figs","Sfig11.png"),
+#        width = 7,
+#        height = 5)
+
+summary(ma_model2)
+class(ma_model2)
+# [1] "robust.rma" "rma"        "rma.mv"  
+```
+
+## Dataset without SD values imputation
+
+```{r, eval=FALSE}
+data_sa <- escalc(measure = "ROM",
+                  m1i = mean_P,
+                  m2i = mean_A, 
+                  sd1i = sd_P, 
+                  sd2i = sd_A, 
+                  n1i = n_P,
+                  n2i = n_A, 
+                  data = dat %>% filter(sd_A > 0))
+
+VCV_sa <- impute_covariance_matrix(data_sa$vi,
+                                     cluster = data_sa$measurement_ID_A, 
+                                     r = 0.5)
+
+ma_model_sa <- rma.mv(yi = yi,
+             V = VCV_sa, 
+             random = list(~1|study_ID,
+                           #~1|pfas_ID,
+                           ~1|es_ID
+              ),
+             test = "t",
+             data = data_sa)
+ma_model_sa <- robust(ma_model_sa, data_sa$measurement_ID_P)
+save(ma_model_sa, file = here("Rdata", "ma_model_sa.RData"))
+```
+
+```{r}
+load(here("RData", "ma_model_sa.RData"))
+summary(ma_model_sa)
+ma_model_orchard_sa <- orchaRd::orchard_plot(ma_model_sa,
+             mod = "1",
+             group = "study_ID", 
+             xlab = "lnRR",
+             alpha = 0.6,
+             trunk.size = 3,
+             branch.size = 1.5,
+             twig.size = 1,
+             k.pos = "right",
+             colour = TRUE,
+             fill = FALSE) + 
+           scale_size_continuous(range = c(1, 7)) + # change point scaling
+  theme(panel.border = element_rect(colour = "black", 
+                                             fill=NA,
+                                             size=1.3), # border around the plot
+                 text = element_text(size = 15), # change font sizes
+                 legend.title = element_text(size = 12),
+                 legend.text = element_text(size = 10)) +
+  xlab("Intercept")
+
+ma_model_orchard_sa
+
+# ggsave(here("figs/Suppl_figs","Sfig10.png"),
+#        width = 7,
+#        height = 5)
+```
+
+
+```{r}
+```
+
+
+
