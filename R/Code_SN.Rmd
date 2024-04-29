@@ -1629,6 +1629,13 @@ fig_life_stage_p
 Mixed-effects meta-regression model. Multivariate meta-analysis model with multiple covariates, using a multilevel random-effects approach.
 
 ```{r, eval=FALSE}
+
+
+# it seems VCV matrix changes the results a bit  
+# this model should not run but it does due to VCV (if life_stage_P is included)
+# this is a bug
+
+
 full_model0 <- rma.mv(yi = lnRR,
                       V = VCV_lnRR, 
                       mods = ~  1 + 
@@ -1639,7 +1646,8 @@ full_model0 <- rma.mv(yi = lnRR,
                         scale(clutch_size) +
                         scale(body_weight_mean) +
                         scale(egg_weight_mean) +
-                        diet,
+                        diet, #+
+                       #life_stage_P,
                       random = list(~1|study_ID,
                                     ~1|pfas_ID, 
                                     ~1|es_ID
@@ -1648,10 +1656,85 @@ full_model0 <- rma.mv(yi = lnRR,
                       data = dat,
                       sparse = TRUE)
 
+mod0 <- mod_results(full_model0, group = "study_ID", mod = "functional_group", weights = "prop")
+orchard_plot(mod1, mod = "functional_group", group = "study_ID", xlab = "lnRR", angle = 45, trunk.size = 0.5)
+
 #save(full_model0, file = here("Rdata", "full_model0.RData"))
 
 
 # try <- orchaRd::mod_results(full_model0, group = "study_ID", mod = "functional_group", weights = "prop")
+
+
+VCV_lnRR2 <- impute_covariance_matrix(data_p$var_lnRR,
+                                     cluster = data_p$measurement_ID_A, r = 0.5)
+
+full_model1 <- rma.mv(yi = lnRR,
+                      V = VCV_lnRR2, 
+                      mods = ~  1 + 
+                        functional_group +
+                        scale(carbon_chain_length) +
+                        sample_type_A +
+                        sample_type_P +
+                        scale(clutch_size) +
+                        scale(body_weight_mean) +
+                        scale(egg_weight_mean) +
+                        diet,  
+                        #life_stage_P,
+                      random = list(~1|study_ID,
+                                    ~1|pfas_ID, 
+                                    ~1|es_ID
+                                    ),
+                      method = "ML", # for estiamtion use REML
+                      test = "t",
+                      data = data_p,
+                      sparse = TRUE)
+summary(full_model1)
+
+
+mod1 <- mod_results(full_model1, group = "study_ID", mod = "functional_group", weights = "prop")
+orchard_plot(mod1, mod = "functional_group", group = "study_ID", xlab = "lnRR", angle = 45, trunk.size = 0.5)
+
+
+test0 <- rma.mv(yi = lnRR,
+                      V = var_lnRR, 
+                      mods = ~  1 + 
+                        functional_group +
+                        scale(carbon_chain_length) +
+                        sample_type_A +
+                        sample_type_P +
+                        scale(clutch_size) +
+                        scale(body_weight_mean) +
+                        scale(egg_weight_mean) +
+                        diet, #+
+                       #life_stage_P,
+                      random = list(~1|study_ID,
+                                    ~1|pfas_ID, 
+                                    ~1|es_ID
+                                    ),
+                      test = "t",
+                      data = dat,
+                      sparse = TRUE)
+
+test1<- rma.mv(yi = lnRR,
+                      V = var_lnRR, 
+                      mods = ~  1 + 
+                        functional_group +
+                        scale(carbon_chain_length) +
+                        sample_type_A +
+                        sample_type_P +
+                        scale(clutch_size) +
+                        scale(body_weight_mean) +
+                        scale(egg_weight_mean) +
+                        diet,  
+                        #life_stage_P,
+                      random = list(~1|study_ID,
+                                    ~1|pfas_ID, 
+                                    ~1|es_ID
+                                    ),
+                      method = "ML",
+                      test = "t",
+                      data = data_p,
+                      sparse = TRUE)
 
 ```
 
@@ -1659,6 +1742,15 @@ full_model0 <- rma.mv(yi = lnRR,
 load(here("RData", "full_model0.RData"))
 summary(full_model0)
 r2_ml(full_model0, dat)
+
+
+full_model0$data
+
+# looking at what is in the life stage - all eggs
+
+data_p <- dat[complete.cases(full_model0$X.f), ]
+data_p$life_stage_P
+
 ```
 
 # Model selection
@@ -1681,16 +1773,27 @@ By 'best model', we mean the acceptable amount of information loss when we use a
 
 ```{r, eval=FALSE}
 eval(metafor:::.MuMIn) # use eval() function to extract helper functions from MuMIn and make them usable in metafor.
-mod.candidate <- dredge(full_model0, beta = "none", evaluate = TRUE, rank = "AICc", trace=2) # dredge to produce all possible models
+
+# for model selection, we should use ML (not the refoult REML) to estimate the model (it may automatically do this)
+
+mod.candidate <- dredge(full_model1, evaluate = TRUE, rank = "AICc", trace = 2) 
+
+# dredge to produce all possible models
 
 # Save the candidate best model
-save(mod.candidate, file = here("Rdata", "best_model.RData"))
+save(mod.candidate, file = here("Rdata", "best_model1.RData"))
 ```
 
 ```{r}
 # Next step, let’s select a sets of best model. This can be done by using thumb of rules, for example, delta AICc <= 4:
-load(here("RData", "best_model.RData"))
+load(here("RData", "best_model1.RData"))
+
+
 subset(mod.candidate, delta <= 4, recalc.weights = FALSE)
+
+
+
+
 
 ```
 
