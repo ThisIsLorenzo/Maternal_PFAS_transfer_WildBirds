@@ -660,6 +660,17 @@ ggplot(dat, aes(x=var_lnRR))+
   theme_classic()
 ```
 
+## Method limit of detection and quantification
+
+```{r}
+a <- hist(dat$LOD_A, main = "Distribution of LOD values (adults)", xlab = "LOD Values", ylab = "Frequency")
+b <- hist(dat$LOD_P, main = "Distribution of LOD values (progeny)", xlab = "LOD Values", ylab = "Frequency")
+c <- hist(dat$LOQ_A, main = "Distribution of LOQ values (adults)", xlab = "LOD Values", ylab = "Frequency")
+d <- hist(dat$LOQ_P, main = "Distribution of LOQ values (progeny)", xlab = "LOD Values", ylab = "Frequency")
+
+```
+
+
 ##Figure 1a - Table and plot of sample sizes
 
 The following chunk creates a table of effect sizes and variables.
@@ -1290,6 +1301,9 @@ fig_egg_weight
 # ggsave(here("figs","fig4_b.png"),
 #        width = 9,
 #        height = 7)
+
+# Pearson's correlation
+cor.test(dat$clutch_size, dat$egg_weight_mean) #not particularly correlated (cor=-0.603498)
 ```
 
 ## Body weight
@@ -1510,6 +1524,7 @@ dat_diet <- dat %>%
     diet == "Insectivorous" ~ "Diet type 5",
     TRUE ~ diet
   ))
+
 ```
 
 ```{r, eval=FALSE}
@@ -1616,7 +1631,7 @@ Mixed-effects meta-regression model. Multivariate meta-analysis model with multi
 ```{r, eval=FALSE}
 full_model0 <- rma.mv(yi = lnRR,
                       V = VCV_lnRR, 
-                      mods = ~1 + 
+                      mods = ~  1 + 
                         functional_group +
                         scale(carbon_chain_length) +
                         sample_type_A +
@@ -1624,8 +1639,8 @@ full_model0 <- rma.mv(yi = lnRR,
                         scale(clutch_size) +
                         scale(body_weight_mean) +
                         scale(egg_weight_mean) +
-                        diet +
-                        life_stage_P,
+                        life_stage_P +
+                        diet,
                       random = list(~1|study_ID,
                                     ~1|pfas_ID, 
                                     ~1|es_ID
@@ -1634,7 +1649,11 @@ full_model0 <- rma.mv(yi = lnRR,
                       data = dat,
                       sparse = TRUE)
 
-save(full_model0, file = here("Rdata", "full_model0.RData"))
+#save(full_model0, file = here("Rdata", "full_model0.RData"))
+
+
+# try <- orchaRd::mod_results(full_model0, group = "study_ID", mod = "functional_group", weights = "prop")
+
 ```
 
 ```{r}
@@ -1645,7 +1664,7 @@ r2_ml(full_model0, dat)
 
 # Model selection
 
-Rephrased From: <https://itchyshin.github.io/Meta-analysis_tutorial/>
+From: <https://itchyshin.github.io/Meta-analysis_tutorial/>
 
 Model selection is a powerful method to:
 
