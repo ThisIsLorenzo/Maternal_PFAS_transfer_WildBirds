@@ -1634,8 +1634,6 @@ Mixed-effects meta-regression model. Multivariate meta-analysis model with multi
 # it seems VCV matrix changes the results a bit  
 # this model should not run but it does due to VCV (if life_stage_P is included)
 # this is a bug
-
-
 full_model0 <- rma.mv(yi = lnRR,
                       V = VCV_lnRR, 
                       mods = ~  1 + 
@@ -1646,7 +1644,31 @@ full_model0 <- rma.mv(yi = lnRR,
                         scale(clutch_size) +
                         scale(body_weight_mean) +
                         scale(egg_weight_mean) +
-                        diet, #+
+                        diet +
+                        life_stage_P,
+                      random = list(~1|study_ID,
+                                    ~1|pfas_ID, 
+                                    ~1|es_ID
+                                    ),
+                      test = "t",
+                      data = dat,
+                      sparse = TRUE)
+
+str(full_model0)
+
+full_model0$X.f
+
+full_model0x <- rma.mv(yi = lnRR,
+                      V = VCV_lnRR, 
+                      mods = ~  1 + 
+                        functional_group +
+                        scale(carbon_chain_length) +
+                        sample_type_A +
+                        sample_type_P +
+                        scale(clutch_size) +
+                        scale(body_weight_mean) +
+                        scale(egg_weight_mean) +
+                        diet, # +
                        #life_stage_P,
                       random = list(~1|study_ID,
                                     ~1|pfas_ID, 
@@ -1656,7 +1678,7 @@ full_model0 <- rma.mv(yi = lnRR,
                       data = dat,
                       sparse = TRUE)
 
-mod0 <- mod_results(full_model0, group = "study_ID", mod = "functional_group", weights = "prop")
+mod1 <- mod_results(full_model1, group = "study_ID", mod = "functional_group", weights = "prop")
 orchard_plot(mod1, mod = "functional_group", group = "study_ID", xlab = "lnRR", angle = 45, trunk.size = 0.5)
 
 #save(full_model0, file = here("Rdata", "full_model0.RData"))
@@ -1678,7 +1700,7 @@ full_model1 <- rma.mv(yi = lnRR,
                         scale(clutch_size) +
                         scale(body_weight_mean) +
                         scale(egg_weight_mean) +
-                        diet,  
+                        diet,#,  
                         #life_stage_P,
                       random = list(~1|study_ID,
                                     ~1|pfas_ID, 
@@ -1712,6 +1734,7 @@ test0 <- rma.mv(yi = lnRR,
                                     ~1|es_ID
                                     ),
                       test = "t",
+                      method = "ML",
                       data = dat,
                       sparse = TRUE)
 
@@ -1731,10 +1754,14 @@ test1<- rma.mv(yi = lnRR,
                                     ~1|pfas_ID, 
                                     ~1|es_ID
                                     ),
-                      method = "ML",
+                      #method = "ML",
                       test = "t",
                       data = data_p,
                       sparse = TRUE)
+
+test0
+test1
+
 
 ```
 
