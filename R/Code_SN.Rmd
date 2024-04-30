@@ -1689,7 +1689,7 @@ full_model1 <- rma.mv(yi = lnRR,
                       data = data_p,
                       sparse = TRUE)
 summary(full_model1)
-
+r2_ml(full_model1, data_p)
 
 mod1 <- mod_results(full_model1, group = "study_ID", mod = "functional_group", weights = "prop")
 orchard_plot(mod1, mod = "functional_group", group = "study_ID", xlab = "lnRR", angle = 45, trunk.size = 0.5)
