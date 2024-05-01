@@ -1661,7 +1661,7 @@ VCV_lnRR2 <- impute_covariance_matrix(data_p$var_lnRR,
 ```{r, eval=FALSE}
 full_model1 <- rma.mv(yi = lnRR,
                       V = VCV_lnRR2, 
-                      mods = ~  1 + 
+                      mods = ~  - 1 + 
                         functional_group +
                         scale(carbon_chain_length) +
                         sample_type_A +
@@ -1689,13 +1689,15 @@ r2_ml(full_model1, data_p)
 mod1 <- mod_results(full_model1,
                     group = "study_ID",
                     mod = "functional_group",
-                    weights = "prop")
+                    weights = "prop"
+                    )
 orchard_plot(mod1,
              mod = "functional_group",
              group = "study_ID",
              xlab = "lnRR",
              angle = 45,
-             trunk.size = 0.5)
+             trunk.size = 0.5
+             )
 
 #Save the plot
 ggsave(here("figs/Suppl_figs","SfigX.png"),
@@ -2024,7 +2026,7 @@ leaveoneout <- ggplot(MA_oneout) + geom_hline(yintercept = 0, lty = 2, lwd = 1) 
 leaveoneout
 
 #Save the plot
-# ggsave(here("figs/Suppl_figs","Sfig8.png"),
+# ggsave(here("figs/Suppl_figs","Sfig10.png"),
 #        width = 7,
 #        height = 5)
 ```
@@ -2091,7 +2093,7 @@ orchaRd::orchard_plot(dat2_sa_model,
                  legend.title = element_text(size = 12),
                  legend.text = element_text(size = 10))
 
-# ggsave(here("figs/Suppl_figs","Sfig9.png"),
+# ggsave(here("figs/Suppl_figs","Sfig11.png"),
 #        width = 8,
 #        height = 6)
 ```
@@ -2142,7 +2144,7 @@ ma_model_bubble2 <- orchaRd::orchard_plot(ma_model2,
 
 ma_model_bubble2
 #Save the plot
-# ggsave(here("figs/Suppl_figs","Sfig11.png"),
+# ggsave(here("figs/Suppl_figs","Sfig12.png"),
 #        width = 7,
 #        height = 5)
 
@@ -2204,7 +2206,7 @@ ma_model_orchard_sa <- orchaRd::orchard_plot(ma_model_sa,
 
 ma_model_orchard_sa
 
-# ggsave(here("figs/Suppl_figs","Sfig10.png"),
+# ggsave(here("figs/Suppl_figs","Sfig13.png"),
 #        width = 7,
 #        height = 5)
 ```
