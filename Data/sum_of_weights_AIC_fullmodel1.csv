@@ -1,0 +1,9 @@
+Predictor_name_from_the_model,Predictor,Sum_of_weights,n_containing_models,R2_marginal,R2_conditional
+sample_type_P,Sample type progeny,1,128,0.6264584,0.7909686
+sample_type_A,Sample type adult,1,128,0.115747,0.1879693
+carbon_chain_length,Carbon chain length,0.99,128,0.03661442,0.06370038
+clutch_size,Clutch size,0.87,128,0.03530602,0.05173175
+diet,Diet type,0.87,128,0.04943506,0.06617858
+body_weight_mean,Body weight,0.25,128,0.002470588,0.06048598
+egg_weight_mean,Egg weight,0.25,128,0.001223228,0.061974475
+functional_group,Functional group,0.21,128,0.01542742,0.07111715

@@ -114,22 +114,22 @@ pacman::p_load(tidyverse, #a collection of packages for data manipulation, visua
 Loading data:
 
 ```{r, results = 'hide'}
-st <- read_csv(here("Data", "study_info.csv")) #study-related data
+st <- read.csv(here("Data", "study_info.csv")) #study-related data
 # dim(st)
 # [1] 13 16
-sp <- read_csv(here("Data", "species_info.csv")) #species-related data
+sp <- read.csv(here("Data", "species_info.csv")) #species-related data
 # dim(sp)
 # [1] 16 15
-pfas <- read_csv(here("Data", "pfas_info.csv")) #pfas-related data
+pfas <- read.csv(here("Data", "pfas_info.csv")) #pfas-related data
 # dim(pfas)
 # [1] 26 12
-co <- read_csv(here("Data", "cohort_info.csv")) #cohort-related data
+co <- read.csv(here("Data", "cohort_info.csv")) #cohort-related data
 # dim(co)
 # [1] 63 25
-sa <- read_csv(here("Data", "sample_info.csv")) #sample-related data
+sa <- read.csv(here("Data", "sample_info.csv")) #sample-related data
 # dim(sa)
 # [1] 70  5
-me <- read_csv(here("Data", "measurement_info.csv")) #statistics
+me <- read.csv(here("Data", "measurement_info.csv")) #statistics
 # dim(me)
 # [1] 505  25
 ```
@@ -1649,17 +1649,55 @@ full_model0 <- rma.mv(yi = lnRR,
                       sparse = TRUE)
 
 #save(full_model0, file = here("Rdata", "full_model0.RData"))
+```
+Looking at what is in the life stage of progeny variable - all eggs. 1 level variable. It must be emoved from the full model.
+```{r}
+data_p <- dat[complete.cases(full_model0$X.f), ]
+data_p$life_stage_P
+VCV_lnRR2 <- impute_covariance_matrix(data_p$var_lnRR,
+                                     cluster = data_p$measurement_ID_A, r = 0.5)
+```
 
-
-# try <- orchaRd::mod_results(full_model0, group = "study_ID", mod = "functional_group", weights = "prop")
-
+```{r, eval=FALSE}
+full_model1 <- rma.mv(yi = lnRR,
+                      V = VCV_lnRR2, 
+                      mods = ~  1 + 
+                        functional_group +
+                        scale(carbon_chain_length) +
+                        sample_type_A +
+                        sample_type_P +
+                        scale(clutch_size) +
+                        scale(body_weight_mean) +
+                        scale(egg_weight_mean) +
+                        diet,#,  
+                        #life_stage_P,
+                      random = list(~1|study_ID,
+                                    ~1|pfas_ID, 
+                                    ~1|es_ID
+                                    ),
+                      method = "ML", # for estiamtion use REML
+                      test = "t",
+                      data = data_p,
+                      sparse = TRUE)
+#save(full_model1, file = here("Rdata", "full_model1.RData"))
 ```
 
 ```{r}
-load(here("RData", "full_model0.RData"))
-summary(full_model0)
-r2_ml(full_model0, dat)
+load(here("RData", "full_model1.RData"))
+summary(full_model1)
+r2_ml(full_model1, data_p)
+mod1 <- mod_results(full_model1, 
+                    group = "study_ID", 
+                    mod = "functional_group",
+                    weights = "prop")
+orchard_plot(mod1,
+             mod = "functional_group", 
+             group = "study_ID", 
+             xlab = "lnRR", 
+             angle = 45,
+             trunk.size = 0.5)
 ```
+
 
 # Model selection
 
@@ -1681,17 +1719,16 @@ By 'best model', we mean the acceptable amount of information loss when we use a
 
 ```{r, eval=FALSE}
 eval(metafor:::.MuMIn) # use eval() function to extract helper functions from MuMIn and make them usable in metafor.
-mod.candidate <- dredge(full_model0, beta = "none", evaluate = TRUE, rank = "AICc", trace=2) # dredge to produce all possible models
+mod.candidate <- dredge(full_model1, beta = "none", evaluate = TRUE, rank = "AICc", trace=2) # dredge to produce all possible models
 
 # Save the candidate best model
-save(mod.candidate, file = here("Rdata", "best_model.RData"))
+save(mod.candidate, file = here("Rdata", "best_model1.RData"))
 ```
 
 ```{r}
 # Next step, let’s select a sets of best model. This can be done by using thumb of rules, for example, delta AICc <= 4:
-load(here("RData", "best_model.RData"))
+load(here("RData", "best_model1.RData"))
 subset(mod.candidate, delta <= 4, recalc.weights = FALSE)
-
 ```
 
 The model selection table shows the results of model selection based on the AICc criterion.
@@ -1704,7 +1741,7 @@ All the variables (labeled "fnc_grp", "smp_typ_A", "smp_typ_P" and "crb_chn_lng"
 
 AIC weights:
 ```{r}
-load(here("RData", "best_model.RData"))
+load(here("RData", "best_model1.RData"))
 # Sum of weights for each variable included in the mod.candidate
 sw(mod.candidate)
 ```
@@ -1714,7 +1751,7 @@ This is because R-squared conditional measures the strength of the relationship 
 
 Plot
 ```{r}
-weights <- read_csv(here("Data", "sum_of_weights_AIC.csv")) #upload data from sw(mod.candidate)
+weights <- read_csv(here("Data", "sum_of_weights_AIC_fullmodel1.csv")) #upload data from sw(mod.candidate)
 
 weights <- weights %>% 
   mutate(weights_percentage = round( Sum_of_weights * 100))
