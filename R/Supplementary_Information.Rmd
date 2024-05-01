@@ -41,8 +41,10 @@ pacman::p_load(tidyverse, #a collection of packages for data manipulation, visua
                patchwork, #a package for combining multiple plots into a single figure
                MuMIn, #a package for model selection and multimodel inference,
                ape,
+               formatR,
                curl,
-               rotl
+               rotl,
+               clubSandwich
                )
 dat <- read_csv(here("RData", "dat.csv"), show_col_types = FALSE)
 ```
@@ -728,12 +730,12 @@ fig_life_stage_p
 
 # Multi-moderator Model
 
-## Model 15
+## Model 15: Full model
 
 ```{r, eval=FALSE}
-full_model0 <- rma.mv(yi = lnRR,
-                      V = VCV_lnRR, 
-                      mods = ~1 + 
+full_model1 <- rma.mv(yi = lnRR,
+                      V = VCV_lnRR2, 
+                      mods = ~  1 + 
                         functional_group +
                         scale(carbon_chain_length) +
                         sample_type_A +
@@ -741,21 +743,82 @@ full_model0 <- rma.mv(yi = lnRR,
                         scale(clutch_size) +
                         scale(body_weight_mean) +
                         scale(egg_weight_mean) +
-                        diet +
-                        life_stage_P,
+                        diet,
+                        #life_stage_P,
                       random = list(~1|study_ID,
                                     ~1|pfas_ID, 
                                     ~1|es_ID
                                     ),
+                      method = "ML", # for estimation use REML
                       test = "t",
-                      data = dat,
+                      data = data_p,
                       sparse = TRUE)
 ```
 
 ```{r}
-load(here("RData", "full_model0.RData"))
-summary(full_model0)
-r2_ml(full_model0, dat)
+load(here("RData", "full_model1.RData"))
+summary(full_model1)
+r2_ml(full_model1, data_p)
+```
+```{r}
+load(here("RData", "full_model1.RData"))
+summary(full_model1)
+r2_ml(full_model1, data_p)
+mod1 <- orchaRd::mod_results(full_model1, 
+                    group = "study_ID", 
+                    mod = "functional_group",
+                    weights = "prop"
+                    )
+orchard_plot(mod1,
+             mod = "functional_group", 
+             group = "study_ID", 
+             xlab = "lnRR", 
+             angle = 45,
+             trunk.size = 0.5)
+```
+
+# Model selection
+
+```{r}
+load(here("RData", "best_model1.RData"))
+subset(mod.candidate, delta <= 4, recalc.weights = FALSE)
+sw(mod.candidate)
+```
+
+```{r}
+weights <- read_csv(here("Data", "sum_of_weights_AIC_fullmodel1.csv")) #upload data from sw(mod.candidate)
+
+weights <- weights %>% 
+  mutate(weights_percentage = round( Sum_of_weights * 100))
+
+weights$Predictor <- factor(weights$Predictor, levels = weights$Predictor[order(weights$weights_percentage, weights$R2_marginal)])
+
+
+AIC_weights <- ggplot(weights, aes(Predictor, Sum_of_weights)) +
+  geom_col(aes(fill = ""), width = 0.7) +
+  geom_text(aes(label = paste0(weights_percentage, "%"), x = Predictor), 
+            position = position_stack(vjust = 0.5), 
+            size = 4.5) +
+  geom_text(aes(label = paste("R2 =", sprintf("%.3f", R2_marginal)), x = Predictor, y =  max(Sum_of_weights)), #R2 conditional 
+            position = position_stack(vjust = 1.07), 
+            size = 4.5, color = "red") +
+  theme_light() +
+  coord_flip() +
+  scale_fill_manual(values = c("#999999")) +
+  scale_x_discrete(name = "Predictor") +
+  scale_y_continuous(name = "AIC weights",
+                     breaks = seq(0, 1, by = 0.2)) +
+  theme(legend.position = "none",
+        axis.title.x = element_text(size = 18),
+        axis.title.y = element_text(size = 18),
+        axis.text = element_text(size = 16),
+        panel.grid.major = element_line(color = "grey", 
+                                       linewidth  = 0.2, 
+                                       linetype = "dashed"),
+       panel.grid.minor = element_line(color = "grey", 
+                                      linewidth  = 0.2, 
+                                      linetype = "dotted"))
+AIC_weights
 ```
 
 # Publication bias
