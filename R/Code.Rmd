@@ -1697,6 +1697,11 @@ orchard_plot(mod1,
              angle = 45,
              trunk.size = 0.5)
 
+#Save the plot
+ggsave(here("figs/Suppl_figs","SfigX.png"),
+       width = 7,
+       height = 5)
+
 mod2 <- mod_results(full_model1,
                     group = "study_ID",
                     mod = "diet",
@@ -1707,6 +1712,11 @@ orchard_plot(mod2,
              xlab = "lnRR",
              angle = 45,
              trunk.size = 0.5)
+
+#Save the plot
+ggsave(here("figs/Suppl_figs","SfigX2.png"),
+       width = 7,
+       height = 5)
 ```
 
 
