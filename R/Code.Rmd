@@ -833,9 +833,9 @@ ma_model_bubble <- orchaRd::orchard_plot(ma_model,
              group = "study_ID", 
              xlab = "lnRR",
              alpha = 0.6,
-             trunk.size = 3,
+             trunk.size = 0.7,
              branch.size = 1.5,
-             twig.size = 1,
+             twig.size = 0.3,
              k.pos = "right",
              colour = TRUE,
              fill = FALSE) +  
@@ -878,9 +878,9 @@ ma_model_bubble2 <- orchaRd::orchard_plot(ma_model,
              group = "species_ID", 
              xlab = "lnRR",
              alpha = 0.6,
-             trunk.size = 3,
+             trunk.size = 0.7,
              branch.size = 1.5,
-             twig.size = 1,
+             twig.size = 0.3,
              k.pos = "right",
              colour = TRUE,
              fill = FALSE) +  
@@ -913,10 +913,10 @@ ma_model_bubble2
 
 ```{r}
 ma_model_bubble/ma_model_bubble2
-# ggsave(here("figs","fig2.jpg"),
-#        width = 6,
-#        height = 5,
-#        dpi = 300)
+ggsave(here("figs","fig2.png"),
+       width = 6,
+       height = 6,
+       dpi = 300)
 ```
 
 
@@ -1639,7 +1639,8 @@ full_model0 <- rma.mv(yi = lnRR,
                         scale(clutch_size) +
                         scale(body_weight_mean) +
                         scale(egg_weight_mean) +
-                        diet,
+                        diet, #,  
+                        #life_stage_P,
                       random = list(~1|study_ID,
                                     ~1|pfas_ID, 
                                     ~1|es_ID
@@ -1652,6 +1653,7 @@ full_model0 <- rma.mv(yi = lnRR,
 ```
 Looking at what is in the life stage of progeny variable - all eggs. 1 level variable. It must be emoved from the full model.
 ```{r}
+load(here("RData", "full_model0.RData"))
 data_p <- dat[complete.cases(full_model0$X.f), ]
 data_p$life_stage_P
 VCV_lnRR2 <- impute_covariance_matrix(data_p$var_lnRR,
@@ -1686,11 +1688,11 @@ full_model1 <- rma.mv(yi = lnRR,
 load(here("RData", "full_model1.RData"))
 summary(full_model1)
 r2_ml(full_model1, data_p)
-mod1 <- mod_results(full_model1,
-                    group = "study_ID",
-                    mod = "functional_group",
-                    weights = "prop"
-                    )
+mod1 <- orchaRd::mod_results(full_model1,
+                             mod = "functional_group",
+                             group = "study_ID",
+                             data = data_p
+                             )
 orchard_plot(mod1,
              mod = "functional_group",
              group = "study_ID",

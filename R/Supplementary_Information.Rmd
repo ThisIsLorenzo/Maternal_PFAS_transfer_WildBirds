@@ -119,6 +119,46 @@ orchaRd::orchard_plot(ma_model,
   xlab("Intercept")
 ```
 
+Making the same plot but coloring individual effect sizes according to the Species_ID rather than Study_ID.
+```{r}
+ma_model_bubble2 <- orchaRd::orchard_plot(ma_model,
+             mod = "1",
+             group = "species_ID", 
+             xlab = "lnRR",
+             alpha = 0.6,
+             trunk.size = 3,
+             branch.size = 1.5,
+             twig.size = 1,
+             k.pos = "right",
+             colour = TRUE,
+             fill = FALSE) +  
+  annotate(geom = "text",
+           x = 1.2,
+           y = 6.2, 
+           label = paste0("italic(I)^{2} == ", round(I2[1],4)),
+           color ="black",
+           parse = TRUE, 
+           size = 3.5) +
+           #scale_colour_manual(values = "darkorange")+ # change colours
+           #scale_fill_manual(values="darkorange")+ 
+           scale_size_continuous(range = c(1, 7)) + # change point scaling
+  ggtitle("b)") +
+  theme(panel.border = element_rect(colour = "black", 
+                                             fill=NA,
+                                             size=1.3), # border around the plot
+                 text = element_text(size = 9), # change font sizes
+                 legend.title = element_text(size = 8),
+                 legend.text = element_text(size = 7),
+        axis.text.y = element_blank()) +
+  xlab("Intercept")
+
+ma_model_bubble2 
+
+# ggsave(here("figs","fig2_b.png"),
+#        width = 7,
+#        height = 5)
+```
+
 ## Model 2: Meta-analytic model with all random effects
 
 ```{r, eval=FALSE}
@@ -764,20 +804,27 @@ r2_ml(full_model1, data_p)
 load(here("RData", "full_model1.RData"))
 summary(full_model1)
 r2_ml(full_model1, data_p)
-mod1 <- orchaRd::mod_results(full_model1, 
-                    group = "study_ID", 
-                    mod = "functional_group",
-                    weights = "prop"
-                    )
-orchard_plot(mod1,
-             mod = "functional_group", 
-             group = "study_ID", 
-             xlab = "lnRR", 
-             angle = 45,
-             trunk.size = 0.5)
+# mod1 <- orchaRd::mod_results(full_model1, 
+#                     group = "study_ID", 
+#                     mod = "functional_group",
+#                     weights = "prop"
+#                     )
+# orchard_plot(mod1,
+#              mod = "functional_group", 
+#              group = "study_ID", 
+#              xlab = "lnRR", 
+#              angle = 45,
+#              trunk.size = 0.5)
 ```
 
 # Model selection
+```{r, eval=FALSE}
+eval(metafor:::.MuMIn) # use eval() function to extract helper functions from MuMIn and make them usable in metafor.
+mod.candidate <- dredge(full_model1, beta = "none", evaluate = TRUE, rank = "AICc", trace=2) # dredge to produce all possible models
+
+# Save the candidate best model
+save(mod.candidate, file = here("Rdata", "best_model1.RData"))
+```
 
 ```{r}
 load(here("RData", "best_model1.RData"))
