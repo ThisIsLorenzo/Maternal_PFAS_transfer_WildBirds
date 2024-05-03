@@ -663,13 +663,16 @@ ggplot(dat, aes(x=var_lnRR))+
 ## Method limit of detection and quantification
 
 ```{r}
-a <- hist(dat$LOD_A, main = "Distribution of LOD values (adults)", xlab = "LOD Values", ylab = "Frequency")
-b <- hist(dat$LOD_P, main = "Distribution of LOD values (progeny)", xlab = "LOD Values", ylab = "Frequency")
+lod_plotA <- hist(dat$LOD_A, main = "Distribution of LOD values (adults)", xlab = "LOD Values", ylab = "Frequency")
+lod_plotB <- hist(dat$LOD_P, main = "Distribution of LOD values (progeny)", xlab = "LOD Values", ylab = "Frequency")
 c <- hist(dat$LOQ_A, main = "Distribution of LOQ values (adults)", xlab = "LOD Values", ylab = "Frequency")
 d <- hist(dat$LOQ_P, main = "Distribution of LOQ values (progeny)", xlab = "LOD Values", ylab = "Frequency")
 
 ```
 
+```{r}
+(lod_plotA + lod_plotB)
+```
 
 ##Figure 1a - Table and plot of sample sizes
 
@@ -1688,13 +1691,17 @@ full_model1 <- rma.mv(yi = lnRR,
 load(here("RData", "full_model1.RData"))
 summary(full_model1)
 r2_ml(full_model1, data_p)
-mod1 <- orchaRd::mod_results(full_model1,
-                             mod = "functional_group",
+
+diet_mod <- orchaRd::mod_results(full_model1,
+                             mod = "diet",
                              group = "study_ID",
                              data = data_p
                              )
-orchard_plot(mod1,
-             mod = "functional_group",
+
+diet_mod <- read_rds(here("RData/diet_mod.RDS"))
+
+orchard_plot(diet_mod,
+             mod = "diet",
              group = "study_ID",
              xlab = "lnRR",
              angle = 45,
@@ -1702,25 +1709,28 @@ orchard_plot(mod1,
              )
 
 #Save the plot
-ggsave(here("figs/Suppl_figs","SfigX.png"),
-       width = 7,
-       height = 5)
+# ggsave(here("figs/Suppl_figs","Sfig9.png"),
+#        width = 7,
+#        height = 9)
 
-mod2 <- mod_results(full_model1,
+fung_mod <- orchaRd::mod_results(full_model1,
                     group = "study_ID",
-                    mod = "diet",
+                    mod = "functional_group",
                     weights = "prop")
-orchard_plot(mod2,
-             mod = "diet",
+
+fung_mod <- read_rds(here("RData/fung_mod.RDS"))
+
+orchard_plot(fung_mod,
+             mod = "functional_group",
              group = "study_ID",
              xlab = "lnRR",
              angle = 45,
              trunk.size = 0.5)
 
 #Save the plot
-ggsave(here("figs/Suppl_figs","SfigX2.png"),
-       width = 7,
-       height = 5)
+# ggsave(here("figs/Suppl_figs","Sfig8.png"),
+#        width = 7,
+#        height = 6)
 ```
 
 

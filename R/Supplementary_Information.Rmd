@@ -152,11 +152,7 @@ ma_model_bubble2 <- orchaRd::orchard_plot(ma_model,
         axis.text.y = element_blank()) +
   xlab("Intercept")
 
-ma_model_bubble2 
-
-# ggsave(here("figs","fig2_b.png"),
-#        width = 7,
-#        height = 5)
+ma_model_bubble2
 ```
 
 ## Model 2: Meta-analytic model with all random effects
