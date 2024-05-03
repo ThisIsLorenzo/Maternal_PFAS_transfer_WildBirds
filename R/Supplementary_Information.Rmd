@@ -92,10 +92,8 @@ orchaRd::orchard_plot(ma_model,
              mod = "1",
              group = "study_ID", 
              xlab = "lnRR",
-             alpha = 0.6,
-             trunk.size = 3,
-             branch.size = 1.5,
-             twig.size = 1,
+             alpha = 0.7,
+             trunk.size = 0.5,
              k.pos = "right",
              colour = TRUE,
              fill = FALSE) +  
@@ -125,10 +123,8 @@ ma_model_bubble2 <- orchaRd::orchard_plot(ma_model,
              mod = "1",
              group = "species_ID", 
              xlab = "lnRR",
-             alpha = 0.6,
-             trunk.size = 3,
-             branch.size = 1.5,
-             twig.size = 1,
+             alpha = 0.7,
+             trunk.size = 0.5,
              k.pos = "right",
              colour = TRUE,
              fill = FALSE) +  
@@ -142,7 +138,7 @@ ma_model_bubble2 <- orchaRd::orchard_plot(ma_model,
            #scale_colour_manual(values = "darkorange")+ # change colours
            #scale_fill_manual(values="darkorange")+ 
            scale_size_continuous(range = c(1, 7)) + # change point scaling
-  ggtitle("b)") +
+  ggtitle("") +
   theme(panel.border = element_rect(colour = "black", 
                                              fill=NA,
                                              size=1.3), # border around the plot
@@ -206,9 +202,7 @@ orchaRd::orchard_plot(ma_model_no_albumen,
              group = "study_ID", 
              xlab = "lnRR",
              alpha = 0.6,
-             trunk.size = 3,
-             branch.size = 1.5,
-             twig.size = 1,
+             trunk.size = 0.5,
              k.pos = "right",
              colour = TRUE,
              fill = FALSE) +  
@@ -384,9 +378,7 @@ orchard_plot(fun_gro_model,
              angle = 90,
              colour = "black",
              fill = FALSE,
-             trunk.size = 5,
-             branch.size = 1.1,
-             twig.size = 0.5) +
+             trunk.size = 0.5) +
   annotate(geom = "text",
            x = 4.4,
            y = -6, 
@@ -605,9 +597,7 @@ orchard_plot(sample_type_a_model,
              angle = 45,
              colour = FALSE,
              fill = FALSE,
-             trunk.size = 4,
-             branch.size = 1,
-             twig.size = 0.5
+             trunk.size = 0.5
              ) +
   annotate(geom="text",
            x= 9.4,
@@ -650,9 +640,7 @@ orchard_plot(sample_type_p_model,
              angle = 45,
              colour = FALSE,
              fill = FALSE,
-             trunk.size = 4,
-             branch.size = 1,
-             twig.size = 0.5
+             trunk.size = 0.5
              ) +
   annotate(geom="text",
            x= 5.4,
@@ -711,9 +699,7 @@ orchard_plot(diet_model,
              angle = 45,
              colour = FALSE,
              fill = FALSE,
-             trunk.size = 4,
-             branch.size = 1,
-             twig.size = 0.5
+             trunk.size = 0.5
              ) +
   annotate(geom="text",
            x = 5.4,
@@ -755,9 +741,7 @@ fig_life_stage_p <- orchard_plot(life_stage_model,
              angle = 45,
              colour = FALSE,
              fill = FALSE,
-             trunk.size = 2,
-             branch.size = 1,
-             twig.size = 0.5) +
+             trunk.size = 0.5) +
   ggtitle("") +
   theme(plot.title = element_text(face = "bold"))
 
@@ -796,21 +780,47 @@ load(here("RData", "full_model1.RData"))
 summary(full_model1)
 r2_ml(full_model1, data_p)
 ```
+
 ```{r}
-load(here("RData", "full_model1.RData"))
-summary(full_model1)
-r2_ml(full_model1, data_p)
-# mod1 <- orchaRd::mod_results(full_model1, 
-#                     group = "study_ID", 
+# diet_mod <- orchaRd::mod_results(full_model1,
+#                              mod = "diet",
+#                              group = "study_ID",
+#                              data = data_p
+#                              )
+
+diet_mod <- read_rds(here("RData/diet_mod.RDS"))
+
+orchard_plot(diet_mod,
+             mod = "diet",
+             group = "study_ID",
+             xlab = "lnRR",
+             angle = 45,
+             trunk.size = 0.5
+             )
+
+#Save the plot
+# ggsave(here("figs/Suppl_figs","Sfig9.png"),
+#        width = 7,
+#        height = 9)
+
+# fung_mod <- orchaRd::mod_results(full_model1,
+#                     group = "study_ID",
 #                     mod = "functional_group",
-#                     weights = "prop"
-#                     )
-# orchard_plot(mod1,
-#              mod = "functional_group", 
-#              group = "study_ID", 
-#              xlab = "lnRR", 
-#              angle = 45,
-#              trunk.size = 0.5)
+#                     weights = "prop")
+
+fung_mod <- read_rds(here("RData/fung_mod.RDS"))
+
+orchard_plot(fung_mod,
+             mod = "functional_group",
+             group = "study_ID",
+             xlab = "lnRR",
+             angle = 45,
+             trunk.size = 0.5)
+
+#Save the plot
+# ggsave(here("figs/Suppl_figs","Sfig8.png"),
+#        width = 7,
+#        height = 6)
 ```
 
 # Model selection
@@ -1026,9 +1036,7 @@ orchaRd::orchard_plot(dat2_sa_model,
              group = "study_ID", 
              xlab = "lnRR",
              alpha = 0.6,
-             trunk.size = 3,
-             branch.size = 1.5,
-             twig.size = 1,
+             trunk.size = 0.5,
              k.pos = "right",
              colour = TRUE,
              fill = FALSE) +  
@@ -1067,9 +1075,7 @@ orchaRd::orchard_plot(ma_model2,
              group = "study_ID", 
              xlab = "lnRR",
              alpha = 0.6,
-             trunk.size = 3,
-             branch.size = 1.5,
-             twig.size = 1,
+             trunk.size = 0.5,
              k.pos = "right",
              colour = TRUE,
              fill = FALSE) +  
@@ -1131,9 +1137,7 @@ orchaRd::orchard_plot(ma_model_sa,
              group = "study_ID", 
              xlab = "lnRR",
              alpha = 0.6,
-             trunk.size = 3,
-             branch.size = 1.5,
-             twig.size = 1,
+             trunk.size = 0.5,
              k.pos = "right",
              colour = TRUE,
              fill = FALSE) + 
