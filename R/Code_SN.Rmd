@@ -1678,9 +1678,16 @@ full_model0x <- rma.mv(yi = lnRR,
                       data = dat,
                       sparse = TRUE)
 
-mod1 <- mod_results(full_model1, group = "study_ID", mod = "functional_group", weights = "prop")
+mod1 <- mod_results(full_model0x, group = "study_ID", mod = "functional_group", weights = "prop")
 orchard_plot(mod1, mod = "functional_group", group = "study_ID", xlab = "lnRR", angle = 45, trunk.size = 0.5)
 
+mod2 <- mod_results(full_model0x, group = "study_ID", mod = "diet", weights = "prop")
+orchard_plot(mod2, mod = "diet", group = "study_ID", xlab = "lnRR", angle = 45, trunk.size = 0.5)
+
+
+saveRDS(mod1, file = here("Rdata", "fung_mod.RDS"))
+
+saveRDS(mod2, file = here("Rdata", "diet_mod.RDS"))
 #save(full_model0, file = here("Rdata", "full_model0.RData"))
 
 
@@ -1711,7 +1718,7 @@ full_model1 <- rma.mv(yi = lnRR,
                       data = data_p,
                       sparse = TRUE)
 summary(full_model1)
-r2_ml(full_model1, data_p)
+
 
 mod1 <- mod_results(full_model1, group = "study_ID", mod = "functional_group", weights = "prop")
 orchard_plot(mod1, mod = "functional_group", group = "study_ID", xlab = "lnRR", angle = 45, trunk.size = 0.5)
